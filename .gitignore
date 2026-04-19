@@ -1,0 +1,25 @@
+# Arduino build files
+*.ino.cpp
+*.ino.cpp.d
+*.elf
+*.hex
+
+# Compiled files
+*.o
+*.a
+
+# Arduino IDE temp files
+*.log
+*.tmp
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# PlatformIO (if you ever use it)
+.pio/
