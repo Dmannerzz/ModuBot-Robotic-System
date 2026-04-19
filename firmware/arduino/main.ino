@@ -10,6 +10,7 @@ int ENB = 10;
 extern int currentSpeed;
 int currentSpeed = 150;
 
+
 void setup() {
     Serial.begin(9600);
     Serial.println("ModuBot Initializing...");
@@ -20,5 +21,46 @@ void setup() {
 }
 
 void loop() {
-    // Main control logic will go here
+  runCurrentMode();
+}
+
+enum Mode { MANUAL, O_AVOIDANCE, PATROL, IDLE };
+Mode currentMode = IDLE;
+
+void runCurrentMode() {
+  switch (currentMode) {
+
+    case MANUAL:
+      handleManual();
+      break;
+
+    case O_AVOIDANCE:
+      handleObstacle();
+      break;
+
+    case PATROL:
+      handlePatrol();
+      break;
+
+    case IDLE:
+    default:
+      handleIdle();
+      break;
+  }
+}
+
+void handleManual() {
+  Serial.println("Manual Mode Active");
+}
+
+void handleObstacle() {
+  Serial.println("Obstacle Mode Active");
+}
+
+void handlePatrol() {
+  Serial.println("Patrol Mode Active");
+}
+
+void handleIdle() {
+  stopMotors();
 }
