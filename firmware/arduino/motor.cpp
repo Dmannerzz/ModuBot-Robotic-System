@@ -21,6 +21,30 @@ void setMotor(int in1, int in2, int in3, int in4, int speed) {
   analogWrite(ENB, speed);
 }
 
+void moveForward() {
+  setMotor(LOW, HIGH, LOW, HIGH, currentSpeed);
+}
+
+void moveBackward() {
+  setMotor(HIGH, LOW, HIGH, LOW, currentSpeed);
+}
+
+void turnLeft() {
+  setMotor(LOW, HIGH, HIGH, LOW, currentSpeed);
+}
+
+void turnRight() {
+  setMotor(HIGH, LOW, LOW, HIGH, currentSpeed);
+}
+
+void rotateLeft() {
+  setMotor(LOW, HIGH, HIGH, LOW, currentSpeed);
+}
+
+void rotateRight() {
+  setMotor(HIGH, LOW, LOW, HIGH, currentSpeed);
+}
+
 void stopMotors() {
   setMotor(LOW, LOW, LOW, LOW, 0);
 }
