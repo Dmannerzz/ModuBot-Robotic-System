@@ -59,6 +59,14 @@ extern uint8_t currentPatrolStep;
 extern bool isPatrolRunning;
 extern bool useManualRoute;
 extern unsigned long patrolStepStartTime;
+extern uint8_t lastPatrolDirection;
+
+// ========== OBSTACLE INTERRUPT STATE ==========
+extern bool obstacleActive;
+
+extern RouteStep resumeStepSnapshot;
+extern unsigned long resumeRemainingTime;
+extern bool hasPatrolSnapshot;
 
 void updateObstacleSensor();
 long readDistanceCM();
