@@ -1,10 +1,11 @@
 #include "motor.h"
 #include <IRremote.h>
+#include "globals.h"
 
 // ========== IR ==========
 #define IR_PIN 11
 
-// ========== Motor Pins ==========
+// ========== MOTOR PINS ==========
 int MOTOR_IN1 = 5;
 int MOTOR_IN2 = 6;
 int MOTOR_IN3 = 7;
@@ -12,31 +13,21 @@ int MOTOR_IN4 = 8;
 int ENA = 9;
 int ENB = 10;
 
-// ========== Speed ==========
+// ========== SPEED ==========
 int currentSpeed = 150;
 
 // ========== STATE ==========
 bool isIdle = false;
 
 // ========== MODE SYSTEM ==========
-enum Mode { MANUAL, O_AVOIDANCE, PATROL, IDLE };
 Mode currentMode = IDLE;
 
-// ========== FUNCTION PROTOTYPES ==========
-void runCurrentMode();
-void handleManual();
-void handleObstacle();
-void handlePatrol();
-void handleIdle();
-void setMode(Mode newMode);
-void handleIR(uint8_t command);
+// ========== ROUTE LOGGING ==========
+bool isLoggingManualRoute = false;
+int lastDirection = DIR_NONE;
+unsigned long currentMoveStart = 0;
 
-// ========== PATROL STATE VARIABLES ==========
-struct RouteStep {
-  uint8_t direction;
-  unsigned long duration;
-};
-
+// ========== ROUTES ==========
 const int MAX_ROUTE_STEPS = 30;
 
 RouteStep manualRoute[MAX_ROUTE_STEPS];
@@ -45,6 +36,7 @@ RouteStep obstacleRoute[MAX_ROUTE_STEPS];
 uint8_t manualRouteIndex = 0;
 uint8_t obstacleRouteIndex = 0;
 
+// ========== PATROL ==========
 RouteStep* currentRoute = nullptr;
 uint8_t currentRouteLength = 0;
 uint8_t currentPatrolStep = 0;
@@ -57,7 +49,7 @@ unsigned long patrolStepStartTime = 0;
 // ========== SETUP ==========
 void setup() {
     Serial.begin(9600);
-    Serial.println("ModuBot Ready");
+    DEBUG_PRINTLN("ModuBot Ready");
 
     IrReceiver.begin(IR_PIN, ENABLE_LED_FEEDBACK);
 }
@@ -75,22 +67,63 @@ void loop() {
 
 // ========== IR HANDLER ==========
 void handleIR(uint8_t command) {
+
+    // ================= MODE SWITCHING =================
     switch (command) {
 
-        case 0x45:
+        case 0x45: // MANUAL
+            isLoggingManualRoute = false;
             setMode(MANUAL);
             break;
 
-        case 0x46:
+        case 0x46: // OBSTACLE
+            isLoggingManualRoute = false;
             setMode(O_AVOIDANCE);
             break;
 
-        case 0x44:
+        case 0x44: // PATROL
+            isLoggingManualRoute = false;
             setMode(PATROL);
             break;
 
-        case 0x40:
+        case 0x40: // IDLE
+            isLoggingManualRoute = false;
             setMode(IDLE);
+            break;
+
+        // ================= ROUTE LOGGING START =================
+        case 0x07: // Button 7 → START LOGGING
+            if (currentMode == MANUAL) {
+                isLoggingManualRoute = true;
+                manualRouteIndex = 0;
+                DEBUG_PRINTLN("Manual route logging started");
+            } else {
+                DEBUG_PRINTLN("Not in MANUAL mode");
+            }
+            break;
+
+        // ================= MANUAL MOVEMENT =================
+        case 0x18: // UP
+            if (currentMode == MANUAL) moveForward();
+            break;
+
+        case 0x52: // DOWN
+            if (currentMode == MANUAL) moveBackward();
+            break;
+
+        case 0x08: // LEFT
+            if (currentMode == MANUAL) turnLeft();
+            break;
+
+        case 0x5A: // RIGHT
+            if (currentMode == MANUAL) turnRight();
+            break;
+
+        case 0x1C: // STOP (OK BUTTON)
+            if (currentMode == MANUAL) stopMotors();
+            break;
+
+        default:
             break;
     }
 }
@@ -193,4 +226,21 @@ void executePatrolStep() {
 
 void handleIdle() {
     stopMotors();
+}
+
+void logRouteStep(uint8_t dir, unsigned long duration, bool isManual) {
+
+    if (isManual) {
+
+        if (!isLoggingManualRoute) return;
+
+        if (manualRouteIndex >= MAX_ROUTE_STEPS) return;
+
+        manualRoute[manualRouteIndex++] = { dir, duration };
+
+        DEBUG_PRINT("Logged: ");
+        DEBUG_PRINT(dir);
+        DEBUG_PRINT(" | ");
+        DEBUG_PRINTLN(duration);
+    }
 }
