@@ -52,6 +52,15 @@ void stopMotors() {
   setMotor(LOW, LOW, LOW, LOW, 0);
 }
 
+void stopMotorsSilent() {
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, LOW);
+    digitalWrite(MOTOR_IN3, LOW);
+    digitalWrite(MOTOR_IN4, LOW);
+    analogWrite(ENA, 0);
+    analogWrite(ENB, 0);
+}
+
 void executeMotion(uint8_t dir) {
 
     if (obstacleActive) {
@@ -65,5 +74,36 @@ void executeMotion(uint8_t dir) {
         case DIR_LEFT: turnLeft(); break;
         case DIR_RIGHT: turnRight(); break;
         default: stopMotors(); break;
+    }
+}
+
+void requestMotion(uint8_t dir) {
+
+    // ========== GLOBAL SAFETY OVERRIDE ==========
+    if (obstacleActive) {
+        stopMotors();
+        return;
+    }
+
+    // ========== MODE FIREWALL ==========
+    switch (currentMode) {
+
+        case MANUAL:
+            executeMotion(dir);
+            break;
+
+        case PATROL:
+            // Patrol ONLY uses motion engine internally
+            // block external manual commands
+            break;
+
+        case O_AVOIDANCE:
+            executeMotion(dir);
+            break;
+
+        case IDLE:
+        default:
+            stopMotors();
+            break;
     }
 }
