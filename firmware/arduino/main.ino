@@ -46,6 +46,10 @@ bool useManualRoute = true;
 
 unsigned long patrolStepStartTime = 0;
 
+// ========== PATROL TIMING CONTROL ==========
+unsigned long lastPatrolUpdate = 0;
+const unsigned long PATROL_TICK = 20;
+
 // ========== SETUP ==========
 void setup() {
     Serial.begin(9600);
@@ -243,4 +247,14 @@ void logRouteStep(uint8_t dir, unsigned long duration, bool isManual) {
         DEBUG_PRINT(" | ");
         DEBUG_PRINTLN(duration);
     }
+}
+
+void reportMotionEvent(uint8_t dir, unsigned long duration) {
+
+    if (currentMode == MANUAL && isLoggingManualRoute) {
+        logRouteStep(dir, duration, true);
+    }
+
+    // Future:
+    // else if (currentMode == O_AVOIDANCE) log obstacle route
 }
