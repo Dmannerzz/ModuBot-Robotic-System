@@ -13,6 +13,10 @@ int MOTOR_IN4 = 8;
 int ENA = 9;
 int ENB = 10;
 
+// ========== ULTRASONIC SENSOR PINS ==========
+const int TRIG_PIN = 3;
+const int ECHO_PIN = 4;
+
 // ========== SPEED ==========
 int currentSpeed = 150;
 
@@ -50,6 +54,14 @@ unsigned long patrolStepStartTime = 0;
 unsigned long lastPatrolUpdate = 0;
 const unsigned long PATROL_TICK = 20;
 
+// ========== OBSTACLE ==========
+bool obstacleDetected = false;
+bool obstacleActive = false;
+unsigned long obstacleStartTime = 0;
+
+bool patrolPaused = false;
+unsigned long patrolPauseTime = 0;
+
 // ========== SETUP ==========
 void setup() {
     Serial.begin(9600);
@@ -60,21 +72,23 @@ void setup() {
 
 // ========== LOOP ==========
 void loop() {
+
+    updateObstacleSensor();   // perception layer
+
     if (IrReceiver.decode()) {
-        uint8_t command = IrReceiver.decodedIRData.command;
-        handleIR(command);
+        handleIR(IrReceiver.decodedIRData.command);
         IrReceiver.resume();
     }
 
-    runCurrentMode();
+    runCurrentMode();         // behavior layer
 }
 
 // ========== IR HANDLER ==========
 void handleIR(uint8_t command) {
 
-    // ================= MODE SWITCHING =================
     switch (command) {
 
+        // ================= MODE SWITCHING =================
         case 0x45: // MANUAL
             isLoggingManualRoute = false;
             setMode(MANUAL);
@@ -95,8 +109,8 @@ void handleIR(uint8_t command) {
             setMode(IDLE);
             break;
 
-        // ================= ROUTE LOGGING START =================
-        case 0x07: // Button 7 → START LOGGING
+        // ================= ROUTE LOGGING =================
+        case 0x07:
             if (currentMode == MANUAL) {
                 isLoggingManualRoute = true;
                 manualRouteIndex = 0;
@@ -106,21 +120,21 @@ void handleIR(uint8_t command) {
             }
             break;
 
-        // ================= MANUAL MOVEMENT =================
+        // ================= MANUAL MOVEMENT (FIXED) =================
         case 0x18: // UP
-            if (currentMode == MANUAL) moveForward();
+            if (currentMode == MANUAL) executeMotion(DIR_FORWARD);
             break;
 
         case 0x52: // DOWN
-            if (currentMode == MANUAL) moveBackward();
+            if (currentMode == MANUAL) executeMotion(DIR_BACKWARD);
             break;
 
         case 0x08: // LEFT
-            if (currentMode == MANUAL) turnLeft();
+            if (currentMode == MANUAL) executeMotion(DIR_LEFT);
             break;
 
         case 0x5A: // RIGHT
-            if (currentMode == MANUAL) turnRight();
+            if (currentMode == MANUAL) executeMotion(DIR_RIGHT);
             break;
 
         case 0x1C: // STOP (OK BUTTON)
@@ -180,17 +194,17 @@ void handleObstacle() {
 
 void handlePatrol() {
 
-    isIdle = false;
+    if (obstacleActive) {
+        stopMotors();
+        return;
+    }
 
     if (!isPatrolRunning) {
 
         currentRoute = useManualRoute ? manualRoute : obstacleRoute;
         currentRouteLength = useManualRoute ? manualRouteIndex : obstacleRouteIndex;
 
-        // Safety check
-        if (currentRouteLength == 0) {
-            return;
-        }
+        if (currentRouteLength == 0) return;
 
         currentPatrolStep = 0;
         patrolStepStartTime = millis();
@@ -204,6 +218,12 @@ void executePatrolStep() {
 
     if (!isPatrolRunning || currentRoute == nullptr) return;
 
+    // 🔴 OBSTACLE SAFETY LAYER
+    if (obstacleActive) {
+        stopMotors();
+        return;
+    }
+
     if (currentPatrolStep >= currentRouteLength) {
         stopMotors();
         currentMode = IDLE;
@@ -213,14 +233,10 @@ void executePatrolStep() {
 
     RouteStep step = currentRoute[currentPatrolStep];
 
-    switch (step.direction) {
-        case 1: moveForward(); break;
-        case 2: moveBackward(); break;
-        case 3: turnLeft(); break;
-        case 4: turnRight(); break;
-        default: stopMotors(); break;
-    }
+    // 🧠 USE UNIFIED MOTION ENGINE (IMPORTANT CHANGE)
+    executeMotion(step.direction);
 
+    // ⏱️ TIMING CONTROL (NON-BLOCKING)
     if (millis() - patrolStepStartTime >= step.duration) {
         stopMotors();
         currentPatrolStep++;
@@ -257,4 +273,25 @@ void reportMotionEvent(uint8_t dir, unsigned long duration) {
 
     // Future:
     // else if (currentMode == O_AVOIDANCE) log obstacle route
+}
+
+void triggerObstacle() {
+
+    if (obstacleActive) return; // already handling it
+
+    obstacleActive = true;
+    obstacleStartTime = millis();
+
+    stopMotors(); // IMMEDIATE HARD STOP
+
+    DEBUG_PRINTLN("OBSTACLE TRIGGERED");
+}
+
+void clearObstacle() {
+
+    if (!obstacleActive) return;
+
+    obstacleActive = false;
+
+    DEBUG_PRINTLN("OBSTACLE CLEARED");
 }
