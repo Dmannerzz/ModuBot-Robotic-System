@@ -62,12 +62,20 @@ void stopMotors() {
 
   unsigned long duration = millis() - currentMoveStart;
 
-  if (currentMode == MANUAL && isLoggingManualRoute) {
-
-    if (lastDirection != DIR_NONE && duration > 50) {
-      logRouteStep(lastDirection, duration, true);
-    }
+  // ONLY report motion event, no decision making
+  if (lastDirection != DIR_NONE && duration > 50) {
+      reportMotionEvent(lastDirection, duration);
   }
 
   lastDirection = DIR_NONE;
+}
+
+void executeMotion(uint8_t dir) {
+    switch (dir) {
+        case DIR_FORWARD: moveForward(); break;
+        case DIR_BACKWARD: moveBackward(); break;
+        case DIR_LEFT: turnLeft(); break;
+        case DIR_RIGHT: turnRight(); break;
+        default: stopMotors(); break;
+    }
 }
