@@ -1,7 +1,6 @@
 #pragma once
 #include <Arduino.h>
 
-// ========== DEBUGGING ==========
 #define DEBUG_MODE 1
 
 #if DEBUG_MODE
@@ -12,32 +11,38 @@
   #define DEBUG_PRINTLN(x)
 #endif
 
-// ========== MODE SYSTEM ==========
+// ========== SENSOR PINS ==========
+extern const int TRIG_PIN;
+extern const int ECHO_PIN;
+
+// ========== MODE ==========
 enum Mode { MANUAL, O_AVOIDANCE, PATROL, IDLE };
 extern Mode currentMode;
 
-// ========== MOTOR STATE ==========
+// ========== MOTOR ==========
 extern int currentSpeed;
 
-// ========== ROUTE LOGGING STATE ==========
-extern bool isLoggingManualRoute;
-extern int lastDirection;
-extern unsigned long currentMoveStart;
-
-// ========== DIRECTION CONSTANTS ==========
+// ========== DIRECTIONS ==========
 #define DIR_NONE 0
 #define DIR_FORWARD 1
 #define DIR_BACKWARD 2
 #define DIR_LEFT 3
 #define DIR_RIGHT 4
 
-// ========== ROUTE STRUCT ==========
+// ========== SENSOR STATE ==========
+extern bool obstacleActive;
+
+// ========== ROUTE LOGGING ==========
+extern bool isLoggingManualRoute;
+extern int lastDirection;
+extern unsigned long currentMoveStart;
+
+// ========== ROUTES ==========
 struct RouteStep {
   uint8_t direction;
   unsigned long duration;
 };
 
-// ========== ROUTES ==========
 extern const int MAX_ROUTE_STEPS;
 
 extern RouteStep manualRoute[];
@@ -46,15 +51,15 @@ extern RouteStep obstacleRoute[];
 extern uint8_t manualRouteIndex;
 extern uint8_t obstacleRouteIndex;
 
-// ========== PATROL STATE ==========
+// ========== PATROL ==========
 extern RouteStep* currentRoute;
 extern uint8_t currentRouteLength;
 extern uint8_t currentPatrolStep;
+
 extern bool isPatrolRunning;
 extern bool useManualRoute;
 extern unsigned long patrolStepStartTime;
 
-// ========== FUNCTIONS ==========
-void logRouteStep(uint8_t dir, unsigned long duration, bool isManual);
-
-void reportMotionEvent(uint8_t dir, unsigned long duration);
+void updateObstacleSensor();
+long readDistanceCM();
+void executeMotion(uint8_t dir);
