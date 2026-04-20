@@ -11,8 +11,10 @@ void turnRight();
 void rotateLeft();
 void rotateRight();
 void stopMotors();
+void stopMotorsSilent();
 
 // ========== MOTION ENGINE (NEW) ==========
 void executeMotion(uint8_t dir);
+void requestMotion(uint8_t dir);
 
 #endif
