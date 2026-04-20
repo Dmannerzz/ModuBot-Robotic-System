@@ -49,6 +49,7 @@ bool isPatrolRunning = false;
 bool useManualRoute = true;
 
 unsigned long patrolStepStartTime = 0;
+uint8_t lastPatrolDirection = 255;
 
 // ========== PATROL TIMING CONTROL ==========
 unsigned long lastPatrolUpdate = 0;
@@ -61,6 +62,11 @@ unsigned long obstacleStartTime = 0;
 
 bool patrolPaused = false;
 unsigned long patrolPauseTime = 0;
+
+RouteStep resumeStepSnapshot;
+unsigned long resumeRemainingTime = 0;
+bool hasPatrolSnapshot = false;
+unsigned long resumeStartTime = 0;
 
 // ========== SETUP ==========
 void setup() {
@@ -120,21 +126,21 @@ void handleIR(uint8_t command) {
             }
             break;
 
-        // ================= MANUAL MOVEMENT (FIXED) =================
+        // ================= MANUAL MOVEMENT (NOW THROUGH FIREWALL) =================
         case 0x18: // UP
-            if (currentMode == MANUAL) executeMotion(DIR_FORWARD);
+            if (currentMode == MANUAL) requestMotion(DIR_FORWARD);
             break;
 
         case 0x52: // DOWN
-            if (currentMode == MANUAL) executeMotion(DIR_BACKWARD);
+            if (currentMode == MANUAL) requestMotion(DIR_BACKWARD);
             break;
 
         case 0x08: // LEFT
-            if (currentMode == MANUAL) executeMotion(DIR_LEFT);
+            if (currentMode == MANUAL) requestMotion(DIR_LEFT);
             break;
 
         case 0x5A: // RIGHT
-            if (currentMode == MANUAL) executeMotion(DIR_RIGHT);
+            if (currentMode == MANUAL) requestMotion(DIR_RIGHT);
             break;
 
         case 0x1C: // STOP (OK BUTTON)
@@ -171,16 +177,44 @@ void runCurrentMode() {
 
 // ========== MODE CONTROL ==========
 void setMode(Mode newMode) {
+
+    if (currentMode == newMode) return; // avoid redundant resets
+
     currentMode = newMode;
 
     stopMotors();
 
-    // Reset patrol when entering PATROL
-    if (newMode == PATROL) {
-        isPatrolRunning = false;
-        currentPatrolStep = 0;
-        patrolStepStartTime = millis();
+    // ================= RESET ALL MODE STATES =================
+    isPatrolRunning = false;
+    hasPatrolSnapshot = false;
+    obstacleActive = false;
+
+    // ================= MODE INITIALIZATION =================
+    switch (newMode) {
+
+        case MANUAL:
+            DEBUG_PRINTLN("MODE: MANUAL");
+            break;
+
+        case O_AVOIDANCE:
+            DEBUG_PRINTLN("MODE: OBSTACLE AVOIDANCE");
+            break;
+
+        case PATROL:
+            DEBUG_PRINTLN("MODE: PATROL INIT");
+
+            currentPatrolStep = 0;
+            patrolStepStartTime = millis();
+            isPatrolRunning = false; // will start lazily in handlePatrol()
+            break;
+
+        case IDLE:
+            DEBUG_PRINTLN("MODE: IDLE");
+            break;
     }
+
+    // ================= COMMON CLEANUP =================
+    lastDirection = DIR_NONE;
 }
 
 // ========== MODE HANDLERS ==========
@@ -194,11 +228,6 @@ void handleObstacle() {
 
 void handlePatrol() {
 
-    if (obstacleActive) {
-        stopMotors();
-        return;
-    }
-
     if (!isPatrolRunning) {
 
         currentRoute = useManualRoute ? manualRoute : obstacleRoute;
@@ -211,6 +240,11 @@ void handlePatrol() {
         isPatrolRunning = true;
     }
 
+    if (obstacleActive) {
+        stopMotors();
+        return;
+    }
+
     executePatrolStep();
 }
 
@@ -218,14 +252,62 @@ void executePatrolStep() {
 
     if (!isPatrolRunning || currentRoute == nullptr) return;
 
-    // 🔴 OBSTACLE SAFETY LAYER
+    // ================= OBSTACLE INTERRUPT =================
     if (obstacleActive) {
-        stopMotors();
+
+        stopMotorsSilent();  // IMPORTANT: avoid logging during pause
+
+        if (!hasPatrolSnapshot && currentPatrolStep < currentRouteLength) {
+
+            resumeStepSnapshot = currentRoute[currentPatrolStep];
+
+            unsigned long elapsed = millis() - patrolStepStartTime;
+            if (elapsed > resumeStepSnapshot.duration) elapsed = resumeStepSnapshot.duration;
+
+            resumeRemainingTime = (resumeStepSnapshot.duration > elapsed)
+                                  ? (resumeStepSnapshot.duration - elapsed)
+                                  : 0;
+
+            hasPatrolSnapshot = true;
+
+            resumeStartTime = 0;  // RESET resume timer safely
+        }
+
+        return; // freeze patrol
+    }
+
+    // ================= RESUME LOGIC =================
+    if (hasPatrolSnapshot) {
+
+        RouteStep step = resumeStepSnapshot;
+
+        if (lastPatrolDirection != step.direction) {
+            executeMotion(step.direction);
+            lastPatrolDirection = step.direction;
+        }
+
+        if (resumeStartTime == 0) {
+            resumeStartTime = millis();
+        }
+
+        if (millis() - resumeStartTime >= resumeRemainingTime) {
+
+            stopMotorsSilent();
+
+            currentPatrolStep++;
+            patrolStepStartTime = millis();
+
+            hasPatrolSnapshot = false;
+            resumeStartTime = 0;
+            lastPatrolDirection = 255; // reset cache
+        }
+
         return;
     }
 
+    // ================= NORMAL PATROL =================
     if (currentPatrolStep >= currentRouteLength) {
-        stopMotors();
+        stopMotorsSilent();
         currentMode = IDLE;
         isPatrolRunning = false;
         return;
@@ -233,12 +315,15 @@ void executePatrolStep() {
 
     RouteStep step = currentRoute[currentPatrolStep];
 
-    // 🧠 USE UNIFIED MOTION ENGINE (IMPORTANT CHANGE)
-    executeMotion(step.direction);
+    if (lastPatrolDirection != step.direction) {
+        executeMotion(step.direction);
+        lastPatrolDirection = step.direction;
+    }
 
-    // ⏱️ TIMING CONTROL (NON-BLOCKING)
     if (millis() - patrolStepStartTime >= step.duration) {
-        stopMotors();
+
+        stopMotorsSilent();
+
         currentPatrolStep++;
         patrolStepStartTime = millis();
     }
