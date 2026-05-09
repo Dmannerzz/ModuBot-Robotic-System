@@ -11,7 +11,7 @@ void StateMachine::init(EventQueue* queue) {
 }
 
 // ==========================
-// MAIN UPDATE LOOP
+// MAIN LOOP
 // ==========================
 void StateMachine::update() {
     Event event;
@@ -29,6 +29,7 @@ void StateMachine::handleEvent(const Event& event) {
     // ---- HIGH PRIORITY OVERRIDES ----
     if (event.type == EventType::OBSTACLE_DETECTED) {
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
+        Motors::stop();
         return;
     }
 
@@ -55,13 +56,14 @@ void StateMachine::handleEvent(const Event& event) {
 
         case EventType::MODE_IDLE:
             transitionTo(RobotState::IDLE);
+            Motors::stop();
             return;
 
         default:
             break;
     }
 
-    // ---- STATE HANDLERS ----
+    // ---- STATE DISPATCH ----
     switch (currentState) {
 
         case RobotState::MANUAL:
@@ -83,27 +85,26 @@ void StateMachine::handleEvent(const Event& event) {
 }
 
 // ==========================
-// STATE BEHAVIORS
+// STATE: MANUAL MODE
 // ==========================
-
 void StateMachine::handleManual(const Event& event) {
 
     switch (event.type) {
 
         case EventType::MOVE_FORWARD:
-            Motors::forward(event.value);
+            Motors::forward();   // continuous
             break;
 
         case EventType::MOVE_BACKWARD:
-            Motors::backward(event.value);
+            Motors::backward();
             break;
 
         case EventType::TURN_LEFT:
-            Motors::left(event.value);
+            Motors::left();
             break;
 
         case EventType::TURN_RIGHT:
-            Motors::right(event.value);
+            Motors::right();
             break;
 
         case EventType::STOP:
@@ -115,37 +116,76 @@ void StateMachine::handleManual(const Event& event) {
     }
 }
 
+// ==========================
+// STATE: OBSTACLE MODE
+// ==========================
 void StateMachine::handleObstacle(const Event& event) {
 
-    if (event.type == EventType::OBSTACLE_DETECTED) {
-        Motors::stop();
+    if (event.type == EventType::MOVE_FORWARD) {
+        Motors::forward(200);   // timed execution
+    }
+
+    if (event.type == EventType::MOVE_BACKWARD) {
         Motors::backward(200);
+    }
+
+    if (event.type == EventType::TURN_LEFT) {
+        Motors::left(300);
+    }
+
+    if (event.type == EventType::TURN_RIGHT) {
+        Motors::right(300);
     }
 
     if (event.type == EventType::SENSOR_UPDATE) {
         int distance = event.value;
 
-        if (distance < 30) {
+        if (distance < 30 && distance > 0) {
             Motors::stop();
             Motors::turnRight(300);
         } else {
-            Motors::forward(200);
+            Motors::forward(150);
         }
     }
 }
 
+// ==========================
+// STATE: PATROL MODE
+// ==========================
+// Logging + replay behavior (future expansion)
 void StateMachine::handlePatrol(const Event& event) {
+
+    if (event.type == EventType::MOVE_FORWARD) {
+        Motors::forward(180);
+        // TODO: log route step here later
+    }
+
+    if (event.type == EventType::TURN_LEFT) {
+        Motors::left(200);
+    }
+
+    if (event.type == EventType::TURN_RIGHT) {
+        Motors::right(200);
+    }
+
+    if (event.type == EventType::STOP) {
+        Motors::stop();
+    }
+
     if (event.type == EventType::TIMER_TICK) {
         Motors::forward(180);
     }
 }
 
+// ==========================
+// STATE: IDLE
+// ==========================
 void StateMachine::handleIdle(const Event& event) {
     Motors::stop();
 }
 
 // ==========================
-// STATE TRANSITION
+// TRANSITION
 // ==========================
 void StateMachine::transitionTo(RobotState newState) {
 
