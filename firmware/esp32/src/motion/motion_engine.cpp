@@ -11,16 +11,36 @@ void MotionEngine::begin() {
 }
 
 // ==========================
-// OPTIONAL YAW SET
+// YAW CONTROL
 // ==========================
 void MotionEngine::setYaw(float yaw) {
     targetYaw = yaw;
 }
 
 // ==========================
-// FORWARD (PID CONTROLLED)
+// SENSOR INPUT (SAFETY HOOK)
 // ==========================
-void MotionEngine::forward(int speed) {
+void MotionEngine::setDistance(int distance) {
+    lastDistance = distance;
+
+    // safety override trigger
+    if (distance > 0 && distance < 25) {
+        safetyOverride = true;
+        stop();
+    } else {
+        safetyOverride = false;
+    }
+}
+
+// ==========================
+// FORWARD (PID + SAFETY)
+// ==========================
+void MotionEngine::forward(uint16_t speed) {
+
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
 
     float correction = pid.compute(targetYaw, 0);
 
@@ -34,30 +54,44 @@ void MotionEngine::forward(int speed) {
 }
 
 // ==========================
-// BACKWARD (NO PID YET - SAFE)
+// BACKWARD (SAFE ESCAPE MODE)
 // ==========================
-void MotionEngine::backward(int speed) {
-    speed = constrain(speed, 0, 255);
+void MotionEngine::backward(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::set(-120, -120);
+        return;
+    }
+
+    speed = constrain(speed, 0, 255);
     Motors::set(-speed, -speed);
 }
 
 // ==========================
-// LEFT TURN (SOFT CONTROL)
+// LEFT TURN (DIFFERENTIAL DRIVE)
 // ==========================
-void MotionEngine::left(int speed) {
-    speed = constrain(speed, 0, 255);
+void MotionEngine::left(uint16_t speed) {
 
-    // differential turning instead of hard stop logic
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
+    speed = constrain(speed, 0, 255);
     Motors::set(-speed, speed);
 }
 
 // ==========================
 // RIGHT TURN
 // ==========================
-void MotionEngine::right(int speed) {
-    speed = constrain(speed, 0, 255);
+void MotionEngine::right(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
+    speed = constrain(speed, 0, 255);
     Motors::set(speed, -speed);
 }
 
@@ -65,5 +99,6 @@ void MotionEngine::right(int speed) {
 // STOP
 // ==========================
 void MotionEngine::stop() {
+    currentSpeed = 0;
     Motors::stop();
 }
