@@ -23,7 +23,6 @@ void MotionEngine::setYaw(float yaw) {
 void MotionEngine::setDistance(int distance) {
     lastDistance = distance;
 
-    // safety override trigger
     if (distance > 0 && distance < 25) {
         safetyOverride = true;
         stop();
@@ -54,7 +53,7 @@ void MotionEngine::forward(uint16_t speed) {
 }
 
 // ==========================
-// BACKWARD (SAFE ESCAPE MODE)
+// BACKWARD (NOW PID CONTROLLED)
 // ==========================
 void MotionEngine::backward(uint16_t speed) {
 
@@ -63,12 +62,21 @@ void MotionEngine::backward(uint16_t speed) {
         return;
     }
 
-    speed = constrain(speed, 0, 255);
-    Motors::set(-speed, -speed);
+    // SAME PID LOGIC AS FORWARD
+    float correction = pid.compute(targetYaw, 0);
+
+    int left = speed + correction;
+    int right = speed - correction;
+
+    left = constrain(left, 0, 255);
+    right = constrain(right, 0, 255);
+
+    // INVERT MOTOR DIRECTION ONLY
+    Motors::set(-left, -right);
 }
 
 // ==========================
-// LEFT TURN (DIFFERENTIAL DRIVE)
+// LEFT TURN
 // ==========================
 void MotionEngine::left(uint16_t speed) {
 
