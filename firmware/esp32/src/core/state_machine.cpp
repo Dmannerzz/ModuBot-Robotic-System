@@ -1,17 +1,21 @@
 #include "state_machine.h"
 #include "motion_engine.h"
+#include "route_logger.h"
 
-// external motion engine (single source of truth)
 static MotionEngine motion;
+static RouteLogger logger;
 
 // ==========================
 // INIT
 // ==========================
 void StateMachine::init(EventQueue* queue) {
+
     eventQueue = queue;
+
     currentState = RobotState::IDLE;
 
     motion.begin();
+    logger.begin();
 }
 
 // ==========================
@@ -31,10 +35,15 @@ void StateMachine::update() {
 // ==========================
 void StateMachine::handleEvent(const Event& event) {
 
-    // ---- SAFETY OVERRIDES ----
+    // ==========================
+    // SAFETY OVERRIDES
+    // ==========================
     if (event.type == EventType::OBSTACLE_DETECTED) {
+
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
+
         motion.stop();
+
         return;
     }
 
@@ -42,12 +51,16 @@ void StateMachine::handleEvent(const Event& event) {
         currentState == RobotState::OBSTACLE_AVOIDANCE) {
 
         transitionTo(RobotState::MANUAL);
+
         return;
     }
 
-    // ---- MODE SWITCHING ----
+    // ==========================
+    // GLOBAL EVENT HANDLING
+    // ==========================
     switch (event.type) {
 
+        // ---------- MODE CONTROL ----------
         case EventType::MODE_MANUAL:
             transitionTo(RobotState::MANUAL);
             return;
@@ -65,11 +78,39 @@ void StateMachine::handleEvent(const Event& event) {
             motion.stop();
             return;
 
+        // ---------- ROUTE LOGGING ----------
+        case EventType::LOG_ROUTE:
+
+            if (!logger.isRecording()) {
+
+                logger.startRecording();
+
+                Serial.println("Route Recording Started");
+
+            } else {
+
+                logger.stopRecording();
+
+                Serial.println("Route Recording Stopped");
+            }
+
+            return;
+
+        case EventType::RESET_LOGS:
+
+            logger.clear();
+
+            Serial.println("Route Cleared");
+
+            return;
+
         default:
             break;
     }
 
-    // ---- STATE EXECUTION ----
+    // ==========================
+    // STATE EXECUTION
+    // ==========================
     switch (currentState) {
 
         case RobotState::MANUAL:
@@ -98,23 +139,43 @@ void StateMachine::handleManual(const Event& event) {
     switch (event.type) {
 
         case EventType::MOVE_FORWARD:
+
+            logger.logEvent(EventType::MOVE_FORWARD);
+
             motion.forward(event.value);
+
             break;
 
         case EventType::MOVE_BACKWARD:
+
+            logger.logEvent(EventType::MOVE_BACKWARD);
+
             motion.backward(event.value);
+
             break;
 
         case EventType::TURN_LEFT:
+
+            logger.logEvent(EventType::TURN_LEFT);
+
             motion.left(event.value);
+
             break;
 
         case EventType::TURN_RIGHT:
+
+            logger.logEvent(EventType::TURN_RIGHT);
+
             motion.right(event.value);
+
             break;
 
         case EventType::STOP:
+
+            logger.logEvent(EventType::STOP);
+
             motion.stop();
+
             break;
 
         default:
@@ -130,12 +191,17 @@ void StateMachine::handleObstacle(const Event& event) {
     if (event.type == EventType::SENSOR_UPDATE) {
 
         int distance = event.value;
+
         motion.setDistance(distance);
 
         if (distance < 30 && distance > 0) {
+
             motion.stop();
+
             motion.right(250);
+
         } else {
+
             motion.forward(150);
         }
     }
@@ -147,19 +213,21 @@ void StateMachine::handleObstacle(const Event& event) {
 void StateMachine::handlePatrol(const Event& event) {
 
     if (event.type == EventType::TIMER_TICK) {
+
         motion.forward(180);
     }
 }
 
 // ==========================
-// IDLE
+// IDLE MODE
 // ==========================
 void StateMachine::handleIdle(const Event& event) {
+
     motion.stop();
 }
 
 // ==========================
-// TRANSITION
+// STATE TRANSITIONS
 // ==========================
 void StateMachine::transitionTo(RobotState newState) {
 
@@ -168,5 +236,6 @@ void StateMachine::transitionTo(RobotState newState) {
     currentState = newState;
 
     Serial.print("STATE → ");
+
     Serial.println((int)newState);
 }
