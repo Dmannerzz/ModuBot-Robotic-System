@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "esp32-hal.h"   // needed for portMUX_TYPE on ESP32
 
 // ==========================
 // Event Types
@@ -63,4 +64,7 @@ private:
     int head = 0;
     int tail = 0;
     int count = 0;
+
+    // ESP32 critical section lock (thread/ISR safety)
+    portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 };
