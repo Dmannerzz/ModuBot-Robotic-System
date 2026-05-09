@@ -2,16 +2,20 @@
 #include "motors.h"
 #include "motion_engine.h"
 
+static MotionEngine motion;
+
 // ==========================
 // INIT
 // ==========================
 void StateMachine::init(EventQueue* queue) {
     eventQueue = queue;
     currentState = RobotState::IDLE;
+
+    motion.begin();
 }
 
 // ==========================
-// MAIN LOOP
+// UPDATE LOOP
 // ==========================
 void StateMachine::update() {
     Event event;
@@ -26,7 +30,7 @@ void StateMachine::update() {
 // ==========================
 void StateMachine::handleEvent(const Event& event) {
 
-    // ---- HIGH PRIORITY OVERRIDES ----
+    // ---- EMERGENCY OVERRIDES ----
     if (event.type == EventType::OBSTACLE_DETECTED) {
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
         Motors::stop();
@@ -85,7 +89,7 @@ void StateMachine::handleEvent(const Event& event) {
 }
 
 // ==========================
-// STATE: MANUAL MODE
+// MANUAL MODE
 // ==========================
 void StateMachine::handleManual(const Event& event) {
 
@@ -117,47 +121,56 @@ void StateMachine::handleManual(const Event& event) {
 }
 
 // ==========================
-// STATE: OBSTACLE MODE
+// OBSTACLE MODE
 // ==========================
 void StateMachine::handleObstacle(const Event& event) {
 
-    if (event.type == EventType::MOVE_FORWARD) {
-        Motors::forward(200);   // timed execution
-    }
+    switch (event.type) {
 
-    if (event.type == EventType::MOVE_BACKWARD) {
-        Motors::backward(200);
-    }
+        case EventType::MOVE_FORWARD:
+            Motors::forward(200);
+            break;
 
-    if (event.type == EventType::TURN_LEFT) {
-        Motors::left(300);
-    }
+        case EventType::MOVE_BACKWARD:
+            Motors::backward(200);
+            break;
 
-    if (event.type == EventType::TURN_RIGHT) {
-        Motors::right(300);
-    }
+        case EventType::TURN_LEFT:
+            Motors::left(300);
+            break;
 
-    if (event.type == EventType::SENSOR_UPDATE) {
-        int distance = event.value;
+        case EventType::TURN_RIGHT:
+            Motors::right(300);
+            break;
 
-        if (distance < 30 && distance > 0) {
-            Motors::stop();
-            Motors::turnRight(300);
-        } else {
-            Motors::forward(150);
+        case EventType::SENSOR_UPDATE: {
+            int distance = event.value;
+
+            if (distance < 30 && distance > 0) {
+                Motors::stop();
+                Motors::right(300);
+            } else {
+                Motors::forward(150);
+            }
+            break;
         }
+
+        default:
+            break;
     }
 }
 
 // ==========================
-// STATE: PATROL MODE
+// PATROL MODE
 // ==========================
-// Logging + replay behavior (future expansion)
 void StateMachine::handlePatrol(const Event& event) {
+
+    if (event.type == EventType::TIMER_TICK) {
+        Motors::forward(180);
+    }
 
     if (event.type == EventType::MOVE_FORWARD) {
         Motors::forward(180);
-        // TODO: log route step here later
     }
 
     if (event.type == EventType::TURN_LEFT) {
@@ -171,14 +184,10 @@ void StateMachine::handlePatrol(const Event& event) {
     if (event.type == EventType::STOP) {
         Motors::stop();
     }
-
-    if (event.type == EventType::TIMER_TICK) {
-        Motors::forward(180);
-    }
 }
 
 // ==========================
-// STATE: IDLE
+// IDLE
 // ==========================
 void StateMachine::handleIdle(const Event& event) {
     Motors::stop();
