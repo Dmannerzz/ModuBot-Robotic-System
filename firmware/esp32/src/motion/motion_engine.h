@@ -1,40 +1,31 @@
 #pragma once
 #include <Arduino.h>
-#include "event_system.h"
 #include "pid_controller.h"
 
 class MotionEngine {
 public:
     void begin();
 
-    // High-level movement API
+    // movement API (speed-based)
     void forward(uint16_t speed = 200);
     void backward(uint16_t speed = 200);
     void left(uint16_t speed = 200);
     void right(uint16_t speed = 200);
     void stop();
 
-    // Mode behavior control
-    void setManualMode(bool enable);
-    void setObstacleMode(bool enable);
+    // optional orientation control (MPU integration later)
+    void setYaw(float yaw);
 
-    // Update loop (called in main loop)
-    void update();
-
-    // Sensor-based correction
+    // sensor input (for safety layer)
     void setDistance(int distance);
 
 private:
     PIDController pid;
 
-    bool manualMode = true;
-    bool obstacleMode = false;
+    float targetYaw = 0;
 
     int currentSpeed = 0;
-    int targetSpeed = 0;
-
     int lastDistance = 100;
 
-    void applyMotorMix(int left, int right);
-    void applyPIDCorrection();
+    bool safetyOverride = false;
 };
