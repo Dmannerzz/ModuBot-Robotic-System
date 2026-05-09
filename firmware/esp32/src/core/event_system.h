@@ -52,14 +52,14 @@ struct Event {
 // ==========================
 class EventQueue {
 public:
-    static const int ظرفیت = 20; // small fixed buffer for ESP32 stability
+    static const int CAPACITY = 20; // small fixed buffer for ESP32 stability
 
     void push(EventType type, int value = 0);
     bool pop(Event &outEvent);
     bool isEmpty();
 
 private:
-    Event buffer[20];
+    Event buffer[CAPACITY];
     int head = 0;
     int tail = 0;
     int count = 0;
