@@ -2,7 +2,7 @@
 
 // Push event into ring buffer
 void EventQueue::push(EventType type, int value) {
-    if (count >= ظرفیت) return; // drop oldest if full (safe fail)
+    if (count >= CAPACITY) return; // drop event if full (safe fail for ESP32)
 
     buffer[tail] = {
         type,
@@ -10,7 +10,7 @@ void EventQueue::push(EventType type, int value) {
         millis()
     };
 
-    tail = (tail + 1) % ظرفیت;
+    tail = (tail + 1) % CAPACITY;
     count++;
 }
 
@@ -19,7 +19,7 @@ bool EventQueue::pop(Event &outEvent) {
     if (count == 0) return false;
 
     outEvent = buffer[head];
-    head = (head + 1) % ظرفیت;
+    head = (head + 1) % CAPACITY;
     count--;
     return true;
 }
