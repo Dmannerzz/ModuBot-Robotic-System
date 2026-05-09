@@ -1,92 +1,117 @@
-#include "obstacle_system.h"
-#include <Arduino.h>
-
-// pins 
-#define TRIG_PIN 26
-#define ECHO_PIN 36
+#include "patrol_system.h"
 
 // ==========================
 // INIT
 // ==========================
-void ObstacleSystem::begin(EventQueue* queue) {
-    eventQueue = queue;
+void PatrolSystem::begin(RouteLogger* loggerRef,
+                         MotionEngine* motionRef) {
 
-    pinMode(TRIG_PIN, OUTPUT);
-    pinMode(ECHO_PIN, INPUT);
+    logger = loggerRef;
+    motion = motionRef;
 }
 
 // ==========================
-// RAW DISTANCE
+// START PATROL
 // ==========================
-int ObstacleSystem::readDistance() {
+void PatrolSystem::start() {
 
-    digitalWrite(TRIG_PIN, LOW);
-    delayMicroseconds(2);
-
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-
-    long duration = pulseIn(ECHO_PIN, HIGH, 50000);
-
-    if (duration <= 0) return 0;
-
-    return duration * 0.034 / 2;
-}
-
-// ==========================
-// SIMPLE FILTER (moving average)
-// ==========================
-int ObstacleSystem::smoothDistance(int newReading) {
-
-    buffer[index] = newReading;
-    index = (index + 1) % 5;
-
-    int sum = 0;
-    for (int i = 0; i < 5; i++) {
-        sum += buffer[i];
+    if (logger->getStepCount() == 0) {
+        Serial.println("No Route Recorded");
+        return;
     }
 
-    return sum / 5;
+    running = true;
+
+    currentStep = 0;
+
+    stepStartTime = millis();
+
+    Serial.println("Patrol Replay Started");
+
+    executeStep(logger->getStep(currentStep));
 }
 
 // ==========================
-// VALIDATION
+// STOP PATROL
 // ==========================
-bool ObstacleSystem::isValidReading(int d) {
-    return (d > 0 && d < 400);
+void PatrolSystem::stop() {
+
+    running = false;
+
+    motion->stop();
+
+    Serial.println("Patrol Replay Stopped");
 }
 
 // ==========================
-// MAIN UPDATE LOOP
+// UPDATE LOOP
 // ==========================
-void ObstacleSystem::update() {
+void PatrolSystem::update() {
 
-    int raw = readDistance();
-    if (!isValidReading(raw)) return;
+    if (!running) return;
 
-    int distance = smoothDistance(raw);
+    RouteStep step = logger->getStep(currentStep);
 
-    lastDistance = distance;
-
-    // Send to motion engine (optional future use)
-    eventQueue->push(EventType::SENSOR_UPDATE, distance);
-
-    // ==========================
-    // OBSTACLE DETECTION LOGIC
-    // ==========================
-    if (distance > 0 && distance < 25) {
-
-        if (!obstacleState) {
-            obstacleState = true;
-            eventQueue->push(EventType::OBSTACLE_DETECTED, distance);
-        }
-
-    } else {
-
-        if (obstacleState) {
-            obstacleState = false;
-            eventQueue->push(EventType::OBSTACLE_CLEARED, distance);
-        }
+    // step still active
+    if (millis() - stepStartTime < step.duration) {
+        return;
     }
+
+    // next step
+    currentStep++;
+
+    // patrol complete
+    if (currentStep >= logger->getStepCount()) {
+
+        stop();
+
+        Serial.println("Patrol Complete");
+
+        return;
+    }
+
+    stepStartTime = millis();
+
+    executeStep(logger->getStep(currentStep));
+}
+
+// ==========================
+// EXECUTE STEP
+// ==========================
+void PatrolSystem::executeStep(const RouteStep& step) {
+
+    switch (step.action) {
+
+        case EventType::MOVE_FORWARD:
+            motion->forward(180);
+            break;
+
+        case EventType::MOVE_BACKWARD:
+            motion->backward(180);
+            break;
+
+        case EventType::TURN_LEFT:
+            motion->left(180);
+            break;
+
+        case EventType::TURN_RIGHT:
+            motion->right(180);
+            break;
+
+        case EventType::STOP:
+            motion->stop();
+            break;
+
+        default:
+            motion->stop();
+            break;
+    }
+}
+
+// ==========================
+// STATUS
+// ==========================
+bool PatrolSystem::isRunning() {
+
+    return running;
 }
