@@ -1,7 +1,7 @@
 #include "state_machine.h"
-#include "motors.h"
 #include "motion_engine.h"
 
+// external motion engine (single source of truth)
 static MotionEngine motion;
 
 // ==========================
@@ -18,6 +18,7 @@ void StateMachine::init(EventQueue* queue) {
 // UPDATE LOOP
 // ==========================
 void StateMachine::update() {
+
     Event event;
 
     while (eventQueue->pop(event)) {
@@ -30,15 +31,16 @@ void StateMachine::update() {
 // ==========================
 void StateMachine::handleEvent(const Event& event) {
 
-    // ---- EMERGENCY OVERRIDES ----
+    // ---- SAFETY OVERRIDES ----
     if (event.type == EventType::OBSTACLE_DETECTED) {
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
-        Motors::stop();
+        motion.stop();
         return;
     }
 
     if (event.type == EventType::OBSTACLE_CLEARED &&
         currentState == RobotState::OBSTACLE_AVOIDANCE) {
+
         transitionTo(RobotState::MANUAL);
         return;
     }
@@ -60,14 +62,14 @@ void StateMachine::handleEvent(const Event& event) {
 
         case EventType::MODE_IDLE:
             transitionTo(RobotState::IDLE);
-            Motors::stop();
+            motion.stop();
             return;
 
         default:
             break;
     }
 
-    // ---- STATE DISPATCH ----
+    // ---- STATE EXECUTION ----
     switch (currentState) {
 
         case RobotState::MANUAL:
@@ -96,23 +98,23 @@ void StateMachine::handleManual(const Event& event) {
     switch (event.type) {
 
         case EventType::MOVE_FORWARD:
-            Motors::forward();   // continuous
+            motion.forward(event.value);
             break;
 
         case EventType::MOVE_BACKWARD:
-            Motors::backward();
+            motion.backward(event.value);
             break;
 
         case EventType::TURN_LEFT:
-            Motors::left();
+            motion.left(event.value);
             break;
 
         case EventType::TURN_RIGHT:
-            Motors::right();
+            motion.right(event.value);
             break;
 
         case EventType::STOP:
-            Motors::stop();
+            motion.stop();
             break;
 
         default:
@@ -125,38 +127,17 @@ void StateMachine::handleManual(const Event& event) {
 // ==========================
 void StateMachine::handleObstacle(const Event& event) {
 
-    switch (event.type) {
+    if (event.type == EventType::SENSOR_UPDATE) {
 
-        case EventType::MOVE_FORWARD:
-            Motors::forward(200);
-            break;
+        int distance = event.value;
+        motion.setDistance(distance);
 
-        case EventType::MOVE_BACKWARD:
-            Motors::backward(200);
-            break;
-
-        case EventType::TURN_LEFT:
-            Motors::left(300);
-            break;
-
-        case EventType::TURN_RIGHT:
-            Motors::right(300);
-            break;
-
-        case EventType::SENSOR_UPDATE: {
-            int distance = event.value;
-
-            if (distance < 30 && distance > 0) {
-                Motors::stop();
-                Motors::right(300);
-            } else {
-                Motors::forward(150);
-            }
-            break;
+        if (distance < 30 && distance > 0) {
+            motion.stop();
+            motion.right(250);
+        } else {
+            motion.forward(150);
         }
-
-        default:
-            break;
     }
 }
 
@@ -166,23 +147,7 @@ void StateMachine::handleObstacle(const Event& event) {
 void StateMachine::handlePatrol(const Event& event) {
 
     if (event.type == EventType::TIMER_TICK) {
-        Motors::forward(180);
-    }
-
-    if (event.type == EventType::MOVE_FORWARD) {
-        Motors::forward(180);
-    }
-
-    if (event.type == EventType::TURN_LEFT) {
-        Motors::left(200);
-    }
-
-    if (event.type == EventType::TURN_RIGHT) {
-        Motors::right(200);
-    }
-
-    if (event.type == EventType::STOP) {
-        Motors::stop();
+        motion.forward(180);
     }
 }
 
@@ -190,7 +155,7 @@ void StateMachine::handlePatrol(const Event& event) {
 // IDLE
 // ==========================
 void StateMachine::handleIdle(const Event& event) {
-    Motors::stop();
+    motion.stop();
 }
 
 // ==========================
