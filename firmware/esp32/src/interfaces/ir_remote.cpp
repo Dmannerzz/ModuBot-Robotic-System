@@ -17,19 +17,19 @@ void IRRemote::update() {
     switch (cmd) {
 
         case 0x18:
-            queueRef->push(EventType::MOVE_FORWARD, 200);
+            queueRef->push(EventType::MOVE_FORWARD);
             break;
 
         case 0x52:
-            queueRef->push(EventType::MOVE_BACKWARD, 200);
+            queueRef->push(EventType::MOVE_BACKWARD);
             break;
 
         case 0x08:
-            queueRef->push(EventType::TURN_LEFT, 150);
+            queueRef->push(EventType::TURN_LEFT);
             break;
 
         case 0x5A:
-            queueRef->push(EventType::TURN_RIGHT, 150);
+            queueRef->push(EventType::TURN_RIGHT);
             break;
 
         case 0x1C:
