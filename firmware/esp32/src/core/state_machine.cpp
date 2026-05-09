@@ -1,6 +1,7 @@
 #include "state_machine.h"
 #include "motion_engine.h"
 #include "route_logger.h"
+#include "patrol_system.h"
 
 static MotionEngine motion;
 static RouteLogger logger;
