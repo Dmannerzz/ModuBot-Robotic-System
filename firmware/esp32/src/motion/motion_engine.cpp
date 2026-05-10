@@ -29,6 +29,11 @@ void MotionEngine::setDistance(int distance) {
 // ==========================
 void MotionEngine::forward(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
     float correction = pid.compute(targetYaw, 0);
 
     int left = speed + correction;
@@ -44,6 +49,11 @@ void MotionEngine::forward(uint16_t speed) {
 // BACKWARD (PID CONTROLLED)
 // ==========================
 void MotionEngine::backward(uint16_t speed) {
+
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
 
     float correction = pid.compute(targetYaw, 0);
 
