@@ -4,10 +4,10 @@
 
 enum class ControlAuthority {
     NONE = 0,
-    MANUAL,
-    OBSTACLE,
-    PATROL,
-    SAFETY
+    PATROL = 1,
+    MANUAL = 2,
+    OBSTACLE = 3,
+    SAFETY = 4
 };
 
 class ControlPolicy {
@@ -21,12 +21,13 @@ public:
 
     void emergencyStop();
 
+    void resetEmergency();   // NEW
+
     bool isEmergencyStopped();
 
 private:
 
-    ControlAuthority currentAuthority =
-        ControlAuthority::NONE;
+    ControlAuthority currentAuthority = ControlAuthority::NONE;
 
     bool emergencyStopActive = false;
 };
