@@ -1,5 +1,4 @@
 #include "motors.h"
-#include "config.h"
 
 // left motor pins
 #define M_A1 16
@@ -14,11 +13,15 @@
 #define M_D1 23
 #define M_D2 25
 
+// ==========================
+// INIT
+// ==========================
 void Motors::init() {
     pinMode(M_A1, OUTPUT);
     pinMode(M_A2, OUTPUT);
     pinMode(M_B1, OUTPUT);
     pinMode(M_B2, OUTPUT);
+
     pinMode(M_C1, OUTPUT);
     pinMode(M_C2, OUTPUT);
     pinMode(M_D1, OUTPUT);
@@ -27,85 +30,65 @@ void Motors::init() {
     stop();
 }
 
-// =======================
-// RAW LEFT/RIGHT CONTROL
-// =======================
-void Motors::setLeft(int speed) {
-    speed = constrain(speed, 0, 255);
-    analogWrite(M_A1, 0);
-    analogWrite(M_A2, speed);
-    analogWrite(M_B1, speed);
-    analogWrite(M_B2, 0);
+// ==========================
+// PURE LEFT MOTOR CONTROL
+// ==========================
+void Motors::applyLeft(int pwm) {
+
+    pwm = constrain(pwm, -255, 255);
+
+    if (pwm >= 0) {
+        analogWrite(M_A1, 0);
+        analogWrite(M_A2, pwm);
+
+        analogWrite(M_B1, pwm);
+        analogWrite(M_B2, 0);
+    } else {
+        pwm = -pwm;
+
+        analogWrite(M_A1, pwm);
+        analogWrite(M_A2, 0);
+
+        analogWrite(M_B1, 0);
+        analogWrite(M_B2, pwm);
+    }
 }
 
-void Motors::setRight(int speed) {
-    speed = constrain(speed, 0, 255);
-    analogWrite(M_C1, speed);
-    analogWrite(M_C2, 0);
-    analogWrite(M_D1, speed);
-    analogWrite(M_D2, 0);
+// ==========================
+// PURE RIGHT MOTOR CONTROL
+// ==========================
+void Motors::applyRight(int pwm) {
+
+    pwm = constrain(pwm, -255, 255);
+
+    if (pwm >= 0) {
+        analogWrite(M_C1, pwm);
+        analogWrite(M_C2, 0);
+
+        analogWrite(M_D1, pwm);
+        analogWrite(M_D2, 0);
+    } else {
+        pwm = -pwm;
+
+        analogWrite(M_C1, 0);
+        analogWrite(M_C2, pwm);
+
+        analogWrite(M_D1, 0);
+        analogWrite(M_D2, pwm);
+    }
 }
 
-// =======================
-// DIRECTIONAL CONTROL
-// =======================
-void Motors::forward(int speed) {
-    speed = constrain(speed, 0, 255);
-    setLeft(speed);
-    setRight(speed);
+// ==========================
+// MAIN ACTUATOR ENTRY POINT
+// ==========================
+void Motors::set(int leftPWM, int rightPWM) {
+    applyLeft(leftPWM);
+    applyRight(rightPWM);
 }
 
-void Motors::backward(int speed) {
-    speed = constrain(speed, 0, 255);
-
-    analogWrite(M_A1, speed);
-    analogWrite(M_A2, 0);
-
-    analogWrite(M_B1, 0);
-    analogWrite(M_B2, speed);
-
-    analogWrite(M_C1, 0);
-    analogWrite(M_C2, speed);
-
-    analogWrite(M_D1, 0);
-    analogWrite(M_D2, speed);
-}
-
-void Motors::left(int speed) {
-    speed = constrain(speed, 0, 255);
-
-    analogWrite(M_A1, speed);
-    analogWrite(M_A2, 0);
-
-    analogWrite(M_B1, 0);
-    analogWrite(M_B2, speed);
-
-    analogWrite(M_C1, speed);
-    analogWrite(M_C2, 0);
-
-    analogWrite(M_D1, speed);
-    analogWrite(M_D2, 0);
-}
-
-void Motors::right(int speed) {
-    speed = constrain(speed, 0, 255);
-
-    analogWrite(M_A1, 0);
-    analogWrite(M_A2, speed);
-
-    analogWrite(M_B1, speed);
-    analogWrite(M_B2, 0);
-
-    analogWrite(M_C1, 0);
-    analogWrite(M_C2, speed);
-
-    analogWrite(M_D1, 0);
-    analogWrite(M_D2, speed);
-}
-
-// =======================
-// STOP (HARD STOP)
-// =======================
+// ==========================
+// STOP
+// ==========================
 void Motors::stop() {
     analogWrite(M_A1, 0);
     analogWrite(M_A2, 0);
