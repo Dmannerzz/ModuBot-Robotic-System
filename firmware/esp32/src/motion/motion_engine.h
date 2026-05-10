@@ -16,7 +16,7 @@ public:
     // orientation control
     void setYaw(float yaw);
 
-    // SAFETY INPUT (pure signal only)
+    // safety layer (external control only)
     void setSafetyOverride(bool enabled);
 
 private:
@@ -25,6 +25,4 @@ private:
     float targetYaw = 0;
 
     bool safetyOverride = false;
-
-    int lastDistance = 100;
 };
