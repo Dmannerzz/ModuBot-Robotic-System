@@ -1,17 +1,19 @@
 #include "event_system.h"
 
-// Push event into ring buffer
 void EventQueue::push(EventType type, int value) {
+
     portENTER_CRITICAL(&mux);
 
     if (count >= CAPACITY) {
+        droppedEvents++;   // track loss
         portEXIT_CRITICAL(&mux);
-        return; // drop event if full (safe fail for ESP32)
+        return;
     }
 
     buffer[tail] = {
         type,
         value,
+        0,
         millis()
     };
 
@@ -21,8 +23,8 @@ void EventQueue::push(EventType type, int value) {
     portEXIT_CRITICAL(&mux);
 }
 
-// Pop event
 bool EventQueue::pop(Event &outEvent) {
+
     portENTER_CRITICAL(&mux);
 
     if (count == 0) {
@@ -31,16 +33,22 @@ bool EventQueue::pop(Event &outEvent) {
     }
 
     outEvent = buffer[head];
+
     head = (head + 1) % CAPACITY;
     count--;
 
     portEXIT_CRITICAL(&mux);
+
     return true;
 }
 
 bool EventQueue::isEmpty() {
+
     portENTER_CRITICAL(&mux);
+
     bool empty = (count == 0);
+
     portEXIT_CRITICAL(&mux);
+
     return empty;
 }
