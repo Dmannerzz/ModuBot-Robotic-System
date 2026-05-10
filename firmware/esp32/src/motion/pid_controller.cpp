@@ -8,11 +8,17 @@ void PIDController::begin(float p, float i, float d) {
     integral = 0;
 }
 
-float PIDController::compute(float target, float current) {
+float PIDController::compute(float target, float current, float dt) {
+
     float error = target - current;
 
     integral += error;
-    float derivative = error - prevError;
+
+    // anti-windup
+    if (integral > 100) integral = 100;
+    if (integral < -100) integral = -100;
+
+    float derivative = (error - prevError) / dt;
 
     prevError = error;
 
