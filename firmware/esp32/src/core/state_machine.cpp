@@ -18,7 +18,6 @@ void StateMachine::init(EventQueue* queue) {
     currentState = RobotState::IDLE;
 
     motion.begin();
-
     logger.begin();
 
     policy.setAuthority(ControlAuthority::NONE);
@@ -33,6 +32,11 @@ void StateMachine::update() {
 
     while (eventQueue->pop(event)) {
 
+        // GLOBAL POLICY GATE (single entry control point)
+        if (!policy.allows(event)) {
+            continue;
+        }
+
         handleEvent(event);
     }
 }
@@ -43,7 +47,7 @@ void StateMachine::update() {
 void StateMachine::handleEvent(const Event& event) {
 
     // ==========================
-    // SAFETY OVERRIDES
+    // SAFETY OVERRIDES (HIGHEST PRIORITY)
     // ==========================
     if (event.type == EventType::OBSTACLE_DETECTED) {
 
@@ -69,57 +73,38 @@ void StateMachine::handleEvent(const Event& event) {
     // ==========================
     switch (event.type) {
 
-        // ---------- MODE CONTROL ----------
         case EventType::MODE_MANUAL:
-
             transitionTo(RobotState::MANUAL);
-
             return;
 
         case EventType::MODE_OBSTACLE:
-
             transitionTo(RobotState::OBSTACLE_AVOIDANCE);
-
             return;
 
         case EventType::MODE_PATROL:
-
             transitionTo(RobotState::PATROL);
-
             return;
 
         case EventType::MODE_IDLE:
-
             transitionTo(RobotState::IDLE);
-
             motion.stop();
-
             return;
 
-        // ---------- ROUTE LOGGING ----------
         case EventType::LOG_ROUTE:
 
             if (!logger.isRecording()) {
-
                 logger.startRecording();
-
                 Serial.println("Route Recording Started");
-
             } else {
-
                 logger.stopRecording();
-
                 Serial.println("Route Recording Stopped");
             }
-
             return;
 
         case EventType::RESET_LOGS:
 
             logger.clear();
-
             Serial.println("Route Cleared");
-
             return;
 
         default:
@@ -132,27 +117,19 @@ void StateMachine::handleEvent(const Event& event) {
     switch (currentState) {
 
         case RobotState::MANUAL:
-
             handleManual(event);
-
             break;
 
         case RobotState::OBSTACLE_AVOIDANCE:
-
             handleObstacle(event);
-
             break;
 
         case RobotState::PATROL:
-
             handlePatrol(event);
-
             break;
 
         case RobotState::IDLE:
-
             handleIdle(event);
-
             break;
     }
 }
@@ -162,50 +139,31 @@ void StateMachine::handleEvent(const Event& event) {
 // ==========================
 void StateMachine::handleManual(const Event& event) {
 
-    if (!policy.canMove(ControlAuthority::MANUAL)) {
-        return;
-    }
-
     switch (event.type) {
 
         case EventType::MOVE_FORWARD:
-
             logger.logEvent(EventType::MOVE_FORWARD);
-
             motion.forward(event.value);
-
             break;
 
         case EventType::MOVE_BACKWARD:
-
             logger.logEvent(EventType::MOVE_BACKWARD);
-
             motion.backward(event.value);
-
             break;
 
         case EventType::TURN_LEFT:
-
             logger.logEvent(EventType::TURN_LEFT);
-
             motion.left(event.value);
-
             break;
 
         case EventType::TURN_RIGHT:
-
             logger.logEvent(EventType::TURN_RIGHT);
-
             motion.right(event.value);
-
             break;
 
         case EventType::STOP:
-
             logger.logEvent(EventType::STOP);
-
             motion.stop();
-
             break;
 
         default:
@@ -216,28 +174,12 @@ void StateMachine::handleManual(const Event& event) {
 // ==========================
 // OBSTACLE MODE
 // ==========================
+// IMPORTANT: NO DIRECT SENSOR LOGIC HERE
+// Only reacts to system-level events
 void StateMachine::handleObstacle(const Event& event) {
 
-    if (!policy.canMove(ControlAuthority::OBSTACLE)) {
-        return;
-    }
-
     if (event.type == EventType::SENSOR_UPDATE) {
-
-        int distance = event.value;
-
-        motion.setDistance(distance);
-
-        if (distance < 30 && distance > 0) {
-
-            motion.stop();
-
-            motion.right(250);
-
-        } else {
-
-            motion.forward(150);
-        }
+        motion.setDistance(event.value);
     }
 }
 
@@ -246,12 +188,7 @@ void StateMachine::handleObstacle(const Event& event) {
 // ==========================
 void StateMachine::handlePatrol(const Event& event) {
 
-    if (!policy.canMove(ControlAuthority::PATROL)) {
-        return;
-    }
-
     if (event.type == EventType::TIMER_TICK) {
-
         motion.forward(180);
     }
 }
@@ -260,7 +197,6 @@ void StateMachine::handlePatrol(const Event& event) {
 // IDLE MODE
 // ==========================
 void StateMachine::handleIdle(const Event& event) {
-
     motion.stop();
 }
 
@@ -274,44 +210,27 @@ void StateMachine::transitionTo(RobotState newState) {
     currentState = newState;
 
     // ==========================
-    // CONTROL AUTHORITY
+    // CONTROL AUTHORITY UPDATE
     // ==========================
     switch (newState) {
 
         case RobotState::MANUAL:
-
-            policy.setAuthority(
-                ControlAuthority::MANUAL
-            );
-
+            policy.setAuthority(ControlAuthority::MANUAL);
             break;
 
         case RobotState::OBSTACLE_AVOIDANCE:
-
-            policy.setAuthority(
-                ControlAuthority::OBSTACLE
-            );
-
+            policy.setAuthority(ControlAuthority::OBSTACLE);
             break;
 
         case RobotState::PATROL:
-
-            policy.setAuthority(
-                ControlAuthority::PATROL
-            );
-
+            policy.setAuthority(ControlAuthority::PATROL);
             break;
 
         case RobotState::IDLE:
-
-            policy.setAuthority(
-                ControlAuthority::NONE
-            );
-
+            policy.setAuthority(ControlAuthority::NONE);
             break;
     }
 
     Serial.print("STATE → ");
-
     Serial.println((int)newState);
 }
