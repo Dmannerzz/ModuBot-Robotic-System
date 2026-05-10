@@ -17,13 +17,16 @@
 // INIT
 // ==========================
 void Motors::init() {
+
     pinMode(M_A1, OUTPUT);
     pinMode(M_A2, OUTPUT);
+
     pinMode(M_B1, OUTPUT);
     pinMode(M_B2, OUTPUT);
 
     pinMode(M_C1, OUTPUT);
     pinMode(M_C2, OUTPUT);
+
     pinMode(M_D1, OUTPUT);
     pinMode(M_D2, OUTPUT);
 
@@ -37,13 +40,24 @@ void Motors::applyLeft(int pwm) {
 
     pwm = constrain(pwm, -255, 255);
 
+    // deadband protection
+    if (abs(pwm) < 20) {
+        pwm = 0;
+    }
+
+    // forward
     if (pwm >= 0) {
+
         analogWrite(M_A1, 0);
         analogWrite(M_A2, pwm);
 
         analogWrite(M_B1, pwm);
         analogWrite(M_B2, 0);
-    } else {
+    }
+
+    // reverse
+    else {
+
         pwm = -pwm;
 
         analogWrite(M_A1, pwm);
@@ -61,13 +75,24 @@ void Motors::applyRight(int pwm) {
 
     pwm = constrain(pwm, -255, 255);
 
+    // deadband protection
+    if (abs(pwm) < 20) {
+        pwm = 0;
+    }
+
+    // forward
     if (pwm >= 0) {
+
         analogWrite(M_C1, pwm);
         analogWrite(M_C2, 0);
 
         analogWrite(M_D1, pwm);
         analogWrite(M_D2, 0);
-    } else {
+    }
+
+    // reverse
+    else {
+
         pwm = -pwm;
 
         analogWrite(M_C1, 0);
@@ -82,7 +107,9 @@ void Motors::applyRight(int pwm) {
 // MAIN ACTUATOR ENTRY POINT
 // ==========================
 void Motors::set(int leftPWM, int rightPWM) {
+
     applyLeft(leftPWM);
+
     applyRight(rightPWM);
 }
 
@@ -90,12 +117,6 @@ void Motors::set(int leftPWM, int rightPWM) {
 // STOP
 // ==========================
 void Motors::stop() {
-    analogWrite(M_A1, 0);
-    analogWrite(M_A2, 0);
-    analogWrite(M_B1, 0);
-    analogWrite(M_B2, 0);
-    analogWrite(M_C1, 0);
-    analogWrite(M_C2, 0);
-    analogWrite(M_D1, 0);
-    analogWrite(M_D2, 0);
+
+    set(0, 0);
 }
