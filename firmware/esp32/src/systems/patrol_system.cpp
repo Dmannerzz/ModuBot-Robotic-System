@@ -16,7 +16,9 @@ void PatrolSystem::begin(RouteLogger* loggerRef,
 void PatrolSystem::start() {
 
     if (logger->getStepCount() == 0) {
+
         Serial.println("No Route Recorded");
+
         return;
     }
 
@@ -50,17 +52,35 @@ void PatrolSystem::update() {
 
     if (!running) return;
 
+    // ==========================
+    // SAFETY OVERRIDE
+    // ==========================
+    if (motion->isSafetyOverrideActive()) {
+
+        Serial.println("Patrol Interrupted: Obstacle");
+
+        stop();
+
+        return;
+    }
+
     RouteStep step = logger->getStep(currentStep);
 
-    // step still active
+    // ==========================
+    // STEP STILL ACTIVE
+    // ==========================
     if (millis() - stepStartTime < step.duration) {
         return;
     }
 
-    // next step
+    // ==========================
+    // NEXT STEP
+    // ==========================
     currentStep++;
 
-    // patrol complete
+    // ==========================
+    // PATROL COMPLETE
+    // ==========================
     if (currentStep >= logger->getStepCount()) {
 
         stop();
@@ -83,19 +103,19 @@ void PatrolSystem::executeStep(const RouteStep& step) {
     switch (step.action) {
 
         case EventType::MOVE_FORWARD:
-            motion->forward(180);
+            motion->forward(patrolSpeed);
             break;
 
         case EventType::MOVE_BACKWARD:
-            motion->backward(180);
+            motion->backward(patrolSpeed);
             break;
 
         case EventType::TURN_LEFT:
-            motion->left(180);
+            motion->left(patrolSpeed);
             break;
 
         case EventType::TURN_RIGHT:
-            motion->right(180);
+            motion->right(patrolSpeed);
             break;
 
         case EventType::STOP:
