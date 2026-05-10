@@ -1,43 +1,87 @@
 #include <Arduino.h>
-#include "event_system.h"
-#include "state_machine.h"
-#include "motors.h"
+
+#include "core/event_system.h"
+#include "core/state_machine.h"
+#include "core/globals.h"
+
+#include "drivers/motors.h"
+
+#include "systems/obstacle_system.h"
+#include "systems/patrol_system.h"
+
+#include "interfaces/ir_remote.h"
 
 // ==========================
 // GLOBAL SYSTEM OBJECTS
 // ==========================
 EventQueue eventQueue;
+
 StateMachine stateMachine;
+
+ObstacleSystem obstacleSystem;
+
+PatrolSystem patrolSystem;
+
+IRRemote irRemote;
 
 // ==========================
 // SETUP
 // ==========================
 void setup() {
+
     Serial.begin(115200);
 
-    // Init subsystems
+    // ==========================
+    // DRIVER INIT
+    // ==========================
+    Motors::begin();
+
+    // ==========================
+    // SYSTEM INIT
+    // ==========================
     stateMachine.init(&eventQueue);
+
+    obstacleSystem.begin(&eventQueue);
+
+    irRemote.init(&eventQueue);
 
     Serial.println("ModuBot ESP32 System Started");
 }
 
 // ==========================
-// LOOP
+// MAIN LOOP
 // ==========================
 void loop() {
 
-    // 1. SYSTEM TICK
-    stateMachine.update();
+    unsigned long now = millis();
 
-    // 2. SIMULATION / TEST INPUTS (REMOVE LATER)
-    static unsigned long lastTest = 0;
+    // ==========================
+    // GLOBAL SYSTEM TICK (50Hz)
+    // ==========================
+    if (now - lastTick >= 20) {
 
-    if (millis() - lastTest > 3000) {
-        lastTest = millis();
+        lastTick = now;
 
-        // Example test event
-        eventQueue.push(EventType::MOVE_FORWARD, 200);
+        eventQueue.push(EventType::TIMER_TICK);
     }
 
-    delay(10);
+    // ==========================
+    // INPUT LAYER
+    // ==========================
+    irRemote.update();
+
+    // ==========================
+    // SENSOR SYSTEMS
+    // ==========================
+    obstacleSystem.update();
+
+    // ==========================
+    // AUTONOMOUS SYSTEMS
+    // ==========================
+    patrolSystem.update();
+
+    // ==========================
+    // CORE ROBOT BRAIN
+    // ==========================
+    stateMachine.update();
 }
