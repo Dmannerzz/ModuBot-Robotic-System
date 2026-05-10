@@ -1,6 +1,6 @@
 #include "motion_engine.h"
 #include "motors.h"
-#include <Arduino.h"
+#include <Arduino.h>
 
 // ==========================
 // INIT
@@ -18,11 +18,10 @@ void MotionEngine::setYaw(float yaw) {
 }
 
 // ==========================
-// SENSOR INPUT (NO LOGIC - PURE DATA)
+// SENSOR INPUT (DATA ONLY)
 // ==========================
 void MotionEngine::setDistance(int distance) {
     lastDistance = distance;
-    // NO SAFETY LOGIC HERE
 }
 
 // ==========================
@@ -58,7 +57,7 @@ void MotionEngine::backward(uint16_t speed) {
 }
 
 // ==========================
-// LEFT TURN (RAW DIFFERENTIAL)
+// LEFT TURN
 // ==========================
 void MotionEngine::left(uint16_t speed) {
 
@@ -67,7 +66,7 @@ void MotionEngine::left(uint16_t speed) {
 }
 
 // ==========================
-// RIGHT TURN (RAW DIFFERENTIAL)
+// RIGHT TURN
 // ==========================
 void MotionEngine::right(uint16_t speed) {
 
