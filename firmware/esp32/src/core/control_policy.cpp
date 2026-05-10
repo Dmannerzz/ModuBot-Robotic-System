@@ -4,7 +4,14 @@
 // SET AUTHORITY
 // ==========================
 void ControlPolicy::setAuthority(ControlAuthority auth) {
+
     currentAuthority = auth;
+
+    // Auto-clear emergency on valid mode switch
+    // (prevents system getting stuck in safety lock)
+    if (auth != ControlAuthority::NONE) {
+        emergencyStopActive = false;
+    }
 }
 
 // ==========================
@@ -15,20 +22,22 @@ ControlAuthority ControlPolicy::getAuthority() {
 }
 
 // ==========================
-// PRIORITY-BASED MOVEMENT CONTROL
+// MOVEMENT PERMISSION (STRICT MODE)
 // ==========================
 bool ControlPolicy::canMove(ControlAuthority requester) {
 
+    // HARD SAFETY LOCK
     if (emergencyStopActive) {
         return false;
     }
 
-    // Higher or equal authority wins
-    return (int)requester >= (int)currentAuthority;
+    // STRICT MODE MATCHING
+    // Only active mode is allowed to act
+    return requester == currentAuthority;
 }
 
 // ==========================
-// EMERGENCY STOP
+// EMERGENCY STOP (GLOBAL LOCK)
 // ==========================
 void ControlPolicy::emergencyStop() {
     emergencyStopActive = true;
@@ -42,7 +51,7 @@ void ControlPolicy::resetEmergency() {
 }
 
 // ==========================
-// STATUS
+// STATUS CHECK
 // ==========================
 bool ControlPolicy::isEmergencyStopped() {
     return emergencyStopActive;
