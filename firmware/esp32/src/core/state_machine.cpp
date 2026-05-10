@@ -63,6 +63,8 @@ void StateMachine::handleEvent(const Event& event) {
     if (event.type == EventType::OBSTACLE_CLEARED &&
         currentState == RobotState::OBSTACLE_AVOIDANCE) {
 
+        policy.resetEmergency();   // 🔥 UNLOCK SYSTEM
+        
         transitionTo(RobotState::MANUAL);
 
         return;
