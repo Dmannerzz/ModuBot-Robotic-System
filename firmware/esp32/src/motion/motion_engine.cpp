@@ -21,15 +21,15 @@ void MotionEngine::setYaw(float yaw) {
 }
 
 // ==========================
-// SENSOR INPUT
+// SAFETY CONTROL
 // ==========================
-// TEMPORARY:
-// kept only for telemetry/debugging
-// MotionEngine no longer performs
-// safety decisions here
-void MotionEngine::setDistance(int distance) {
+void MotionEngine::setSafetyOverride(bool enabled) {
 
-    lastDistance = distance;
+    safetyOverride = enabled;
+
+    if (enabled) {
+        Motors::stop();
+    }
 }
 
 // ==========================
@@ -37,10 +37,13 @@ void MotionEngine::setDistance(int distance) {
 // ==========================
 void MotionEngine::forward(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
     speed = constrain(speed, 0, 255);
 
-    // PID temporarily disabled
-    // until real IMU yaw feedback exists
     int correction = 0;
 
     int left = speed + correction;
@@ -57,9 +60,13 @@ void MotionEngine::forward(uint16_t speed) {
 // ==========================
 void MotionEngine::backward(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
     speed = constrain(speed, 0, 255);
 
-    // PID temporarily disabled
     int correction = 0;
 
     int left = speed + correction;
@@ -76,6 +83,11 @@ void MotionEngine::backward(uint16_t speed) {
 // ==========================
 void MotionEngine::left(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
     speed = constrain(speed, 0, 255);
 
     Motors::set(-speed, speed);
@@ -86,6 +98,11 @@ void MotionEngine::left(uint16_t speed) {
 // ==========================
 void MotionEngine::right(uint16_t speed) {
 
+    if (safetyOverride) {
+        Motors::stop();
+        return;
+    }
+
     speed = constrain(speed, 0, 255);
 
     Motors::set(speed, -speed);
@@ -95,8 +112,6 @@ void MotionEngine::right(uint16_t speed) {
 // STOP
 // ==========================
 void MotionEngine::stop() {
-
-    currentSpeed = 0;
 
     Motors::stop();
 }
