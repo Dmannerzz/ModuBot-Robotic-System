@@ -1,28 +1,24 @@
 #pragma once
 #include <Arduino.h>
 #include "pid_controller.h"
+#include "motion_command.h"
 
 class MotionEngine {
 public:
     void begin();
 
-    // movement API
-    void forward(uint16_t speed = 200);
-    void backward(uint16_t speed = 200);
-    void left(uint16_t speed = 200);
-    void right(uint16_t speed = 200);
-    void stop();
+    // SINGLE ENTRY POINT NOW
+    void execute(const MotionCommand& cmd);
 
     // orientation control
     void setYaw(float yaw);
 
-    // safety layer (external control only)
+    // safety control
     void setSafetyOverride(bool enabled);
 
 private:
     PIDController pid;
 
     float targetYaw = 0;
-
     bool safetyOverride = false;
 };
