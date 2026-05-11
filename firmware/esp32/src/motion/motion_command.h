@@ -1,10 +1,15 @@
 #pragma once
+#include <stdint.h>
 
-enum class MotionCommand {
-    NONE = 0,
+enum class MotionAction {
+    STOP = 0,
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT,
-    STOP
+    RIGHT
+};
+
+struct MotionCommand {
+    MotionAction action;
+    uint16_t speed;
 };
