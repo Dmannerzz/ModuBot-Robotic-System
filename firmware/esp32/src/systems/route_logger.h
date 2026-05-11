@@ -1,12 +1,11 @@
 #pragma once
 #include <Arduino.h>
-#include "event_system.h"
 #include "motion_command.h"
 
 #define MAX_ROUTE_STEPS 50
 
 struct RouteStep {
-    MotionCommand action;
+    MotionCommand cmd;
     uint32_t duration;
 };
 
@@ -17,25 +16,20 @@ public:
     void startRecording();
     void stopRecording();
 
-    void logEvent(EventType type);
+    void logCommand(const MotionCommand& cmd);
 
     RouteStep getStep(int index);
     int getStepCount();
 
     void clear();
-
     bool isRecording();
 
 private:
     RouteStep route[MAX_ROUTE_STEPS];
 
     bool recording = false;
-
     int stepCount = 0;
 
-    EventType lastAction = EventType::NONE;
-
+    MotionCommand lastCmd;
     uint32_t lastTimestamp = 0;
-
-    MotionCommand toMotion(EventType type);
 };
