@@ -15,19 +15,13 @@ void PatrolSystem::begin(RouteLogger* loggerRef,
 // ==========================
 void PatrolSystem::start() {
 
-    if (!logger || !motion) return;
-
     if (logger->getStepCount() == 0) {
-
         Serial.println("No Route Recorded");
-
         return;
     }
 
     running = true;
-
     currentStep = 0;
-
     stepStartTime = millis();
 
     Serial.println("Patrol Replay Started");
@@ -41,8 +35,7 @@ void PatrolSystem::start() {
 void PatrolSystem::stop() {
 
     running = false;
-
-    if (motion) motion->stop();
+    motion->stop();
 
     Serial.println("Patrol Replay Stopped");
 }
@@ -52,7 +45,7 @@ void PatrolSystem::stop() {
 // ==========================
 void PatrolSystem::update() {
 
-    if (!running || !logger || !motion) return;
+    if (!running) return;
 
     RouteStep step = logger->getStep(currentStep);
 
@@ -65,43 +58,38 @@ void PatrolSystem::update() {
     if (currentStep >= logger->getStepCount()) {
 
         stop();
-
         Serial.println("Patrol Complete");
-
         return;
     }
 
     stepStartTime = millis();
-
     executeStep(logger->getStep(currentStep));
 }
 
 // ==========================
-// EXECUTE STEP
+// EXECUTE STEP (UPDATED)
 // ==========================
 void PatrolSystem::executeStep(const RouteStep& step) {
 
-    int patrolSpeed = 180; // TEMP FIX (move to config later)
-
     switch (step.action) {
 
-        case EventType::MOVE_FORWARD:
-            motion->forward(patrolSpeed);
+        case MotionCommand::FORWARD:
+            motion->forward(180);
             break;
 
-        case EventType::MOVE_BACKWARD:
-            motion->backward(patrolSpeed);
+        case MotionCommand::BACKWARD:
+            motion->backward(180);
             break;
 
-        case EventType::TURN_LEFT:
-            motion->left(patrolSpeed);
+        case MotionCommand::LEFT:
+            motion->left(180);
             break;
 
-        case EventType::TURN_RIGHT:
-            motion->right(patrolSpeed);
+        case MotionCommand::RIGHT:
+            motion->right(180);
             break;
 
-        case EventType::STOP:
+        case MotionCommand::STOP:
             motion->stop();
             break;
 
@@ -115,6 +103,5 @@ void PatrolSystem::executeStep(const RouteStep& step) {
 // STATUS
 // ==========================
 bool PatrolSystem::isRunning() {
-
     return running;
 }
