@@ -1,7 +1,7 @@
 #include "state_machine.h"
-#include "motion_engine.h"
-#include "route_logger.h"
-#include "patrol_system.h"
+#include "../motion/motion_engine.h"
+#include "../systems/route_logger.h"
+#include "../systems/patrol_system.h"
 #include "control_policy.h"
 #include "motion_command.h"
 
