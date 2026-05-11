@@ -13,15 +13,21 @@ void IMU::begin() {
 
     calibrate();
 
-    lastTime = millis();
-    yaw = 0;
+    yaw = 0.0f;
+    gyroZ = 0.0f;
+    lastUpdate = millis();
+
+    Serial.println("IMU initialized");
 }
 
+// ==========================
+// CALIBRATION
+// ==========================
 void IMU::calibrate() {
 
     sensors_event_t a, g, temp;
 
-    float sum = 0;
+    float sum = 0.0f;
 
     for (int i = 0; i < 200; i++) {
 
@@ -32,51 +38,52 @@ void IMU::calibrate() {
         delay(5);
     }
 
-    offsetZ = sum / 200.0f;
+    gyroZOffset = sum / 200.0f;
 
-    Serial.print("IMU offset Z: ");
-    Serial.println(offsetZ);
+    Serial.print("Gyro Z Offset: ");
+    Serial.println(gyroZOffset);
 }
 
+// ==========================
+// UPDATE LOOP (CORE IMU ENGINE)
+// ==========================
 void IMU::update() {
 
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
     unsigned long now = millis();
-    float dt = (now - lastTime) / 1000.0f;
+    float dt = (now - lastUpdate) / 1000.0f;
 
-    lastTime = now;
+    lastUpdate = now;
 
     // ==========================
-    // SAFETY: prevent dt spikes
+    // protect against bad dt
     // ==========================
-    if (dt <= 0 || dt > 0.1f) {
+    if (dt <= 0.0f || dt > 0.1f) {
         dt = 0.01f;
     }
 
-    // gyro Z (rad/s from library)
+    // raw gyro (rad/s)
     float rawGyroZ = g.gyro.z;
 
-    gyroZ = rawGyroZ - offsetZ;
+    // apply calibration offset
+    gyroZ = rawGyroZ - gyroZOffset;
 
-    // ==========================
-    // CONVERT rad/s → deg/s
-    // ==========================
+    // convert rad/s → deg/s
     float gyroDeg = gyroZ * 57.2958f;
 
     // integrate yaw
     yaw += gyroDeg * dt;
 
-    // normalize
+    // normalize angle
     if (yaw > 180.0f) yaw -= 360.0f;
     if (yaw < -180.0f) yaw += 360.0f;
 }
 
-float IMU::getYaw() const {
+// ==========================
+// OUTPUT
+// ==========================
+float IMU::getYaw() {
     return yaw;
-}
-
-float IMU::getGyroZ() const {
-    return gyroZ;
 }
