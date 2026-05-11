@@ -1,14 +1,24 @@
 #pragma once
+
 #include <Arduino.h>
 #include "motion_command.h"
 
 #define MAX_ROUTE_STEPS 50
 
+// ==========================
+// ROUTE STEP (IMU-AWARE)
+// ==========================
 struct RouteStep {
     MotionCommand cmd;
     uint32_t duration;
+
+    // 🔥 NEW: heading reference for IMU replay correction
+    float yaw;
 };
 
+// ==========================
+// ROUTE LOGGER
+// ==========================
 class RouteLogger {
 public:
     void begin();
@@ -16,7 +26,8 @@ public:
     void startRecording();
     void stopRecording();
 
-    void logCommand(const MotionCommand& cmd);
+    // 🔥 UPDATED: now includes yaw capture
+    void logCommand(const MotionCommand& cmd, float yaw);
 
     RouteStep getStep(int index);
     int getStepCount();
