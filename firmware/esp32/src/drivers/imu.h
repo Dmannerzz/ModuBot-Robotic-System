@@ -9,13 +9,15 @@ public:
     void begin();
 
     void update();      // refresh sensor data
-    float getYaw();     // main output for robot
+    float getYaw();     // main robot heading output
 
 private:
     Adafruit_MPU6050 mpu;
 
-    float yaw = 0;
-    float gyroZOffset = 0;
+    float yaw = 0.0f;
+    float gyroZOffset = 0.0f;
+
+    float gyroZ = 0.0f;
 
     unsigned long lastUpdate = 0;
 
