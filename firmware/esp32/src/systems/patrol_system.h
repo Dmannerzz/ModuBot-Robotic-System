@@ -11,9 +11,7 @@ public:
                MotionEngine* motionRef);
 
     void start();
-
     void stop();
-
     void update();
 
     bool isRunning();
@@ -21,7 +19,6 @@ public:
 private:
 
     RouteLogger* logger = nullptr;
-
     MotionEngine* motion = nullptr;
 
     bool running = false;
@@ -31,4 +28,6 @@ private:
     unsigned long stepStartTime = 0;
 
     void executeStep(const RouteStep& step);
+
+    void applyYawCorrection(const RouteStep& step);
 };
