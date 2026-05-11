@@ -6,9 +6,7 @@
 // INIT
 // ==========================
 void MotionEngine::begin() {
-
     pid.begin(2.0, 0.0, 0.5);
-
     targetYaw = 0;
 }
 
@@ -16,7 +14,6 @@ void MotionEngine::begin() {
 // YAW CONTROL
 // ==========================
 void MotionEngine::setYaw(float yaw) {
-
     targetYaw = yaw;
 }
 
@@ -24,7 +21,6 @@ void MotionEngine::setYaw(float yaw) {
 // SAFETY CONTROL
 // ==========================
 void MotionEngine::setSafetyOverride(bool enabled) {
-
     safetyOverride = enabled;
 
     if (enabled) {
@@ -33,85 +29,47 @@ void MotionEngine::setSafetyOverride(bool enabled) {
 }
 
 // ==========================
-// FORWARD
+// COMMAND EXECUTOR (CORE)
 // ==========================
-void MotionEngine::forward(uint16_t speed) {
+void MotionEngine::execute(const MotionCommand& cmd) {
 
     if (safetyOverride) {
         Motors::stop();
         return;
     }
 
-    speed = constrain(speed, 0, 255);
+    uint16_t speed = constrain(cmd.speed, 0, 255);
 
-    int correction = 0;
+    // NOTE: PID still placeholder until IMU integration
+    float correction = 0;
 
     int left = speed + correction;
     int right = speed - correction;
 
-    left = constrain(left, 0, 255);
-    right = constrain(right, 0, 255);
+    left = constrain(left, -255, 255);
+    right = constrain(right, -255, 255);
 
-    Motors::set(left, right);
-}
+    switch (cmd.action) {
 
-// ==========================
-// BACKWARD
-// ==========================
-void MotionEngine::backward(uint16_t speed) {
+        case MotionAction::FORWARD:
+            Motors::set(left, right);
+            break;
 
-    if (safetyOverride) {
-        Motors::stop();
-        return;
+        case MotionAction::BACKWARD:
+            Motors::set(-left, -right);
+            break;
+
+        case MotionAction::LEFT:
+            Motors::set(-speed, speed);
+            break;
+
+        case MotionAction::RIGHT:
+            Motors::set(speed, -speed);
+            break;
+
+        case MotionAction::STOP:
+        default:
+            Motors::stop();
+            break;
     }
-
-    speed = constrain(speed, 0, 255);
-
-    int correction = 0;
-
-    int left = speed + correction;
-    int right = speed - correction;
-
-    left = constrain(left, 0, 255);
-    right = constrain(right, 0, 255);
-
-    Motors::set(-left, -right);
-}
-
-// ==========================
-// LEFT TURN
-// ==========================
-void MotionEngine::left(uint16_t speed) {
-
-    if (safetyOverride) {
-        Motors::stop();
-        return;
-    }
-
-    speed = constrain(speed, 0, 255);
-
-    Motors::set(-speed, speed);
-}
-
-// ==========================
-// RIGHT TURN
-// ==========================
-void MotionEngine::right(uint16_t speed) {
-
-    if (safetyOverride) {
-        Motors::stop();
-        return;
-    }
-
-    speed = constrain(speed, 0, 255);
-
-    Motors::set(speed, -speed);
-}
-
-// ==========================
-// STOP
-// ==========================
-void MotionEngine::stop() {
-
-    Motors::stop();
 }
