@@ -8,6 +8,33 @@ void RouteLogger::begin() {
 }
 
 // ==========================
+// EVENT → MOTION MAPPING
+// ==========================
+MotionCommand RouteLogger::toMotion(EventType type) {
+
+    switch (type) {
+
+        case EventType::MOVE_FORWARD:
+            return MotionCommand::FORWARD;
+
+        case EventType::MOVE_BACKWARD:
+            return MotionCommand::BACKWARD;
+
+        case EventType::TURN_LEFT:
+            return MotionCommand::LEFT;
+
+        case EventType::TURN_RIGHT:
+            return MotionCommand::RIGHT;
+
+        case EventType::STOP:
+            return MotionCommand::STOP;
+
+        default:
+            return MotionCommand::NONE;
+    }
+}
+
+// ==========================
 // START RECORDING
 // ==========================
 void RouteLogger::startRecording() {
@@ -27,12 +54,11 @@ void RouteLogger::stopRecording() {
 
     recording = false;
 
-    // finalize last action
     if (lastAction != EventType::NONE &&
         stepCount < MAX_ROUTE_STEPS) {
 
         route[stepCount++] = {
-            lastAction,
+            toMotion(lastAction),
             millis() - lastTimestamp
         };
     }
@@ -45,17 +71,15 @@ void RouteLogger::logEvent(EventType type) {
 
     if (!recording) return;
 
-    // ignore repeated same movement
     if (type == lastAction) return;
 
     uint32_t now = millis();
 
-    // finalize previous step
     if (lastAction != EventType::NONE &&
         stepCount < MAX_ROUTE_STEPS) {
 
         route[stepCount++] = {
-            lastAction,
+            toMotion(lastAction),
             now - lastTimestamp
         };
     }
@@ -84,14 +108,12 @@ int RouteLogger::getStepCount() {
 void RouteLogger::clear() {
 
     stepCount = 0;
-
     lastAction = EventType::NONE;
-
     lastTimestamp = 0;
 }
 
 // ==========================
-// RECORDING STATUS
+// STATUS
 // ==========================
 bool RouteLogger::isRecording() {
     return recording;
