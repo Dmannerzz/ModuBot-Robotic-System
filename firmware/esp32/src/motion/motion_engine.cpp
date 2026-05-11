@@ -11,6 +11,13 @@ void MotionEngine::begin() {
 }
 
 // ==========================
+// ATTACH IMU
+// ==========================
+void MotionEngine::attachIMU(IMU* imu) {
+    imuRef = imu;
+}
+
+// ==========================
 // YAW CONTROL
 // ==========================
 void MotionEngine::setYaw(float yaw) {
@@ -40,8 +47,17 @@ void MotionEngine::execute(const MotionCommand& cmd) {
 
     uint16_t speed = constrain(cmd.speed, 0, 255);
 
-    // NOTE: PID still placeholder until IMU integration
-    float correction = 0;
+    // ==========================
+    // REAL PID INTEGRATION
+    // ==========================
+    float currentYaw = 0;
+
+    if (imuRef != nullptr) {
+        imuRef->update();
+        currentYaw = imuRef->getYaw();
+    }
+
+    float correction = pid.compute(targetYaw, currentYaw);
 
     int left = speed + correction;
     int right = speed - correction;
@@ -49,6 +65,9 @@ void MotionEngine::execute(const MotionCommand& cmd) {
     left = constrain(left, -255, 255);
     right = constrain(right, -255, 255);
 
+    // ==========================
+    // MOTOR EXECUTION
+    // ==========================
     switch (cmd.action) {
 
         case MotionAction::FORWARD:
