@@ -28,27 +28,28 @@ void RouteLogger::stopRecording() {
 
     recording = false;
 
-    // finalize last command
+    // finalize last step safely
     if (stepCount < MAX_ROUTE_STEPS &&
         lastCmd.action != MotionAction::STOP) {
 
         route[stepCount++] = {
             lastCmd,
-            millis() - lastTimestamp
+            millis() - lastTimestamp,
+            0.0f
         };
     }
 }
 
 // ==========================
-// LOG COMMAND (CORE CHANGE)
+// LOG COMMAND (IMU-AWARE CORE)
 // ==========================
-void RouteLogger::logCommand(const MotionCommand& cmd) {
+void RouteLogger::logCommand(const MotionCommand& cmd, float yaw) {
 
     if (!recording) return;
 
     uint32_t now = millis();
 
-    // ignore duplicates (same motion state)
+    // ignore duplicates (same command state)
     if (cmd.action == lastCmd.action &&
         cmd.speed == lastCmd.speed) {
         return;
@@ -60,7 +61,8 @@ void RouteLogger::logCommand(const MotionCommand& cmd) {
 
         route[stepCount++] = {
             lastCmd,
-            now - lastTimestamp
+            now - lastTimestamp,
+            yaw   // 🔥 IMU SNAPSHOT STORED HERE
         };
     }
 
@@ -72,11 +74,16 @@ void RouteLogger::logCommand(const MotionCommand& cmd) {
 // GET STEP
 // ==========================
 RouteStep RouteLogger::getStep(int index) {
+
+    if (index < 0 || index >= stepCount) {
+        return { {MotionAction::STOP, 0}, 0, 0.0f };
+    }
+
     return route[index];
 }
 
 // ==========================
-// COUNT
+// STEP COUNT
 // ==========================
 int RouteLogger::getStepCount() {
     return stepCount;
