@@ -5,6 +5,7 @@
 #include "systems/patrol_system.h"
 #include "core/control_policy.h"
 #include "motion/motion_command.h"
+#include "drivers/imu.h"
 
 // ==========================
 // INTERNAL SYSTEMS
@@ -13,6 +14,7 @@ static MotionEngine motion;
 static RouteLogger logger;
 static PatrolSystem patrol;
 static ControlPolicy policy;
+static IMU imu;   
 
 // ==========================
 // INIT
@@ -20,11 +22,10 @@ static ControlPolicy policy;
 void StateMachine::init(EventQueue* queue) {
 
     eventQueue = queue;
-
     currentState = RobotState::IDLE;
 
     // ==========================
-    // CORE MODULES INIT
+    // CORE MODULE INIT
     // ==========================
     motion.begin();
     logger.begin();
@@ -34,21 +35,21 @@ void StateMachine::init(EventQueue* queue) {
     policy.setAuthority(ControlAuthority::NONE);
 
     // ==========================
-    // IMU WIRING (CRITICAL FIX)
+    // IMU INIT + WIRING
     // ==========================
-    static IMU imu;
     imu.begin();
-
     motion.attachIMU(&imu);
 
-    // OPTIONAL: start safe state
     motion.setSafetyOverride(false);
+
+    // SAFE START STATE
+    motion.execute({MotionAction::STOP, 0});
 
     Serial.println("System Wiring Complete");
 }
 
 // ==========================
-// UPDATE
+// UPDATE LOOP
 // ==========================
 void StateMachine::update() {
 
@@ -67,12 +68,11 @@ void StateMachine::update() {
 void StateMachine::handleEvent(const Event& event) {
 
     // ==========================
-    // SAFETY LAYER
+    // SAFETY OVERRIDE (HIGHEST PRIORITY)
     // ==========================
     if (event.type == EventType::OBSTACLE_DETECTED) {
 
         policy.emergencyStop();
-
         patrol.stop();
 
         motion.setSafetyOverride(true);
@@ -88,10 +88,11 @@ void StateMachine::handleEvent(const Event& event) {
         currentState == RobotState::OBSTACLE_AVOIDANCE) {
 
         policy.resetEmergency();
-
         motion.setSafetyOverride(false);
 
         transitionTo(RobotState::MANUAL);
+
+        motion.execute({MotionAction::STOP, 0});
 
         return;
     }
@@ -104,11 +105,13 @@ void StateMachine::handleEvent(const Event& event) {
         case EventType::MODE_MANUAL:
             patrol.stop();
             transitionTo(RobotState::MANUAL);
+            motion.execute({MotionAction::STOP, 0});
             return;
 
         case EventType::MODE_OBSTACLE:
             patrol.stop();
             transitionTo(RobotState::OBSTACLE_AVOIDANCE);
+            motion.execute({MotionAction::STOP, 0});
             return;
 
         case EventType::MODE_PATROL:
