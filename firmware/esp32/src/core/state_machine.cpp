@@ -23,11 +23,28 @@ void StateMachine::init(EventQueue* queue) {
 
     currentState = RobotState::IDLE;
 
+    // ==========================
+    // CORE MODULES INIT
+    // ==========================
     motion.begin();
     logger.begin();
+
     patrol.begin(&logger, &motion);
 
     policy.setAuthority(ControlAuthority::NONE);
+
+    // ==========================
+    // IMU WIRING (CRITICAL FIX)
+    // ==========================
+    static IMU imu;
+    imu.begin();
+
+    motion.attachIMU(&imu);
+
+    // OPTIONAL: start safe state
+    motion.setSafetyOverride(false);
+
+    Serial.println("System Wiring Complete");
 }
 
 // ==========================
