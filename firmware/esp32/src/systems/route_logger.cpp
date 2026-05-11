@@ -8,33 +8,6 @@ void RouteLogger::begin() {
 }
 
 // ==========================
-// EVENT → MOTION MAPPING
-// ==========================
-MotionCommand RouteLogger::toMotion(EventType type) {
-
-    switch (type) {
-
-        case EventType::MOVE_FORWARD:
-            return MotionCommand::FORWARD;
-
-        case EventType::MOVE_BACKWARD:
-            return MotionCommand::BACKWARD;
-
-        case EventType::TURN_LEFT:
-            return MotionCommand::LEFT;
-
-        case EventType::TURN_RIGHT:
-            return MotionCommand::RIGHT;
-
-        case EventType::STOP:
-            return MotionCommand::STOP;
-
-        default:
-            return MotionCommand::NONE;
-    }
-}
-
-// ==========================
 // START RECORDING
 // ==========================
 void RouteLogger::startRecording() {
@@ -44,7 +17,8 @@ void RouteLogger::startRecording() {
     recording = true;
 
     lastTimestamp = millis();
-    lastAction = EventType::NONE;
+
+    lastCmd = { MotionAction::STOP, 0 };
 }
 
 // ==========================
@@ -54,37 +28,43 @@ void RouteLogger::stopRecording() {
 
     recording = false;
 
-    if (lastAction != EventType::NONE &&
-        stepCount < MAX_ROUTE_STEPS) {
+    // finalize last command
+    if (stepCount < MAX_ROUTE_STEPS &&
+        lastCmd.action != MotionAction::STOP) {
 
         route[stepCount++] = {
-            toMotion(lastAction),
+            lastCmd,
             millis() - lastTimestamp
         };
     }
 }
 
 // ==========================
-// LOG EVENT
+// LOG COMMAND (CORE CHANGE)
 // ==========================
-void RouteLogger::logEvent(EventType type) {
+void RouteLogger::logCommand(const MotionCommand& cmd) {
 
     if (!recording) return;
 
-    if (type == lastAction) return;
-
     uint32_t now = millis();
 
-    if (lastAction != EventType::NONE &&
-        stepCount < MAX_ROUTE_STEPS) {
+    // ignore duplicates (same motion state)
+    if (cmd.action == lastCmd.action &&
+        cmd.speed == lastCmd.speed) {
+        return;
+    }
+
+    // finalize previous step
+    if (stepCount < MAX_ROUTE_STEPS &&
+        lastCmd.action != MotionAction::STOP) {
 
         route[stepCount++] = {
-            toMotion(lastAction),
+            lastCmd,
             now - lastTimestamp
         };
     }
 
-    lastAction = type;
+    lastCmd = cmd;
     lastTimestamp = now;
 }
 
@@ -96,7 +76,7 @@ RouteStep RouteLogger::getStep(int index) {
 }
 
 // ==========================
-// STEP COUNT
+// COUNT
 // ==========================
 int RouteLogger::getStepCount() {
     return stepCount;
@@ -108,7 +88,9 @@ int RouteLogger::getStepCount() {
 void RouteLogger::clear() {
 
     stepCount = 0;
-    lastAction = EventType::NONE;
+
+    lastCmd = { MotionAction::STOP, 0 };
+
     lastTimestamp = 0;
 }
 
