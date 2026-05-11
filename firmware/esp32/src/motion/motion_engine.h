@@ -1,27 +1,36 @@
 #pragma once
+
 #include <Arduino.h>
 #include "pid_controller.h"
 #include "motion_command.h"
-#include "imu.h" 
+#include "../drivers/imu.h"
 
 class MotionEngine {
 public:
     void begin();
 
-    // SINGLE ENTRY POINT NOW
+    // CORE EXECUTION INTERFACE
     void execute(const MotionCommand& cmd);
 
-    // orientation control
+    // HEADING CONTROL
     void setYaw(float yaw);
 
-    // safety control
+    // SAFETY CONTROL
     void setSafetyOverride(bool enabled);
+
+    // OPTIONAL: attach IMU reference (dependency injection)
+    void attachIMU(IMU* imu);
 
 private:
     PIDController pid;
 
     IMU* imuRef = nullptr;
 
-    float targetYaw = 0;
+    float targetYaw = 0.0f;
+
     bool safetyOverride = false;
+
+    int baseSpeed = 180;
+
+    float normalizeAngle(float angle);
 };
