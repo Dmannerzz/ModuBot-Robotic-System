@@ -14,6 +14,7 @@ void IMU::begin() {
     calibrate();
 
     lastTime = millis();
+    yaw = 0;
 }
 
 void IMU::calibrate() {
@@ -23,12 +24,18 @@ void IMU::calibrate() {
     float sum = 0;
 
     for (int i = 0; i < 200; i++) {
+
         mpu.getEvent(&a, &g, &temp);
+
         sum += g.gyro.z;
+
         delay(5);
     }
 
     offsetZ = sum / 200.0f;
+
+    Serial.print("IMU offset Z: ");
+    Serial.println(offsetZ);
 }
 
 void IMU::update() {
@@ -38,16 +45,32 @@ void IMU::update() {
 
     unsigned long now = millis();
     float dt = (now - lastTime) / 1000.0f;
+
     lastTime = now;
 
-    gyroZ = g.gyro.z - offsetZ;
+    // ==========================
+    // SAFETY: prevent dt spikes
+    // ==========================
+    if (dt <= 0 || dt > 0.1f) {
+        dt = 0.01f;
+    }
 
-    // integrate to get yaw
-    yaw += gyroZ * dt;
+    // gyro Z (rad/s from library)
+    float rawGyroZ = g.gyro.z;
+
+    gyroZ = rawGyroZ - offsetZ;
+
+    // ==========================
+    // CONVERT rad/s → deg/s
+    // ==========================
+    float gyroDeg = gyroZ * 57.2958f;
+
+    // integrate yaw
+    yaw += gyroDeg * dt;
 
     // normalize
-    if (yaw > 180) yaw -= 360;
-    if (yaw < -180) yaw += 360;
+    if (yaw > 180.0f) yaw -= 360.0f;
+    if (yaw < -180.0f) yaw += 360.0f;
 }
 
 float IMU::getYaw() const {
