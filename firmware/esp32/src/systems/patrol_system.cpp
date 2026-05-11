@@ -24,7 +24,7 @@ void PatrolSystem::start() {
     currentStep = 0;
     stepStartTime = millis();
 
-    Serial.println("Patrol Replay Started");
+    Serial.println("IMU-Assisted Patrol Started");
 
     executeStep(logger->getStep(currentStep));
 }
@@ -35,7 +35,8 @@ void PatrolSystem::start() {
 void PatrolSystem::stop() {
 
     running = false;
-    motion->stop();
+
+    motion->execute({ MotionAction::STOP, 0 });
 
     Serial.println("Patrol Replay Stopped");
 }
@@ -49,10 +50,21 @@ void PatrolSystem::update() {
 
     RouteStep step = logger->getStep(currentStep);
 
+    // ==========================
+    // STILL EXECUTING CURRENT STEP
+    // ==========================
     if (millis() - stepStartTime < step.duration) {
+
+        // 🔥 CONTINUOUS IMU CORRECTION (KEY UPGRADE)
+        motion->setYaw(step.yaw);
+        motion->execute(step.cmd);
+
         return;
     }
 
+    // ==========================
+    // NEXT STEP
+    // ==========================
     currentStep++;
 
     if (currentStep >= logger->getStepCount()) {
@@ -63,40 +75,20 @@ void PatrolSystem::update() {
     }
 
     stepStartTime = millis();
+
     executeStep(logger->getStep(currentStep));
 }
 
 // ==========================
-// EXECUTE STEP (UPDATED)
+// EXECUTE STEP (IMU-AWARE)
 // ==========================
 void PatrolSystem::executeStep(const RouteStep& step) {
 
-    switch (step.action) {
+    // 🔥 LOCK TARGET HEADING FROM RECORDED PATH
+    motion->setYaw(step.yaw);
 
-        case MotionCommand::FORWARD:
-            motion->forward(180);
-            break;
-
-        case MotionCommand::BACKWARD:
-            motion->backward(180);
-            break;
-
-        case MotionCommand::LEFT:
-            motion->left(180);
-            break;
-
-        case MotionCommand::RIGHT:
-            motion->right(180);
-            break;
-
-        case MotionCommand::STOP:
-            motion->stop();
-            break;
-
-        default:
-            motion->stop();
-            break;
-    }
+    // 🔥 EXECUTE USING UNIFIED COMMAND SYSTEM
+    motion->execute(step.cmd);
 }
 
 // ==========================
