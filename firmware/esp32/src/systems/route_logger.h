@@ -1,11 +1,12 @@
 #pragma once
 #include <Arduino.h>
 #include "event_system.h"
+#include "motion_command.h"
 
 #define MAX_ROUTE_STEPS 50
 
 struct RouteStep {
-    EventType action;
+    MotionCommand action;
     uint32_t duration;
 };
 
@@ -35,4 +36,6 @@ private:
     EventType lastAction = EventType::NONE;
 
     uint32_t lastTimestamp = 0;
+
+    MotionCommand toMotion(EventType type);
 };
