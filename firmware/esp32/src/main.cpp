@@ -2,6 +2,7 @@
 
 #include "core/event_system.h"
 #include "core/state_machine.h"
+#include "core/globals.h"
 
 #include "drivers/motors.h"
 
@@ -11,19 +12,15 @@
 #include "interfaces/ir_remote.h"
 
 // ==========================
-// GLOBAL SYSTEMS
+// GLOBAL SYSTEM OBJECTS
 // ==========================
 EventQueue eventQueue;
 
 StateMachine stateMachine;
-ObstacleSystem obstacleSystem;
-PatrolSystem patrolSystem;
-IRRemote irRemote;
 
-// ==========================
-// TIMER
-// ==========================
-static unsigned long lastTick = 0;
+ObstacleSystem obstacleSystem;
+
+IRRemote irRemote;
 
 // ==========================
 // SETUP
@@ -32,25 +29,33 @@ void setup() {
 
     Serial.begin(115200);
 
+    // ==========================
+    // DRIVER INIT
+    // ==========================
     Motors::begin();
 
+    // ==========================
+    // SYSTEM INIT
+    // ==========================
     stateMachine.init(&eventQueue);
 
     obstacleSystem.begin(&eventQueue);
 
     irRemote.init(&eventQueue);
 
-    Serial.println("ModuBot System Ready");
+    Serial.println("ModuBot ESP32 System Started");
 }
 
 // ==========================
-// LOOP
+// MAIN LOOP
 // ==========================
 void loop() {
 
     unsigned long now = millis();
 
-    // 50Hz system tick
+    // ==========================
+    // GLOBAL SYSTEM TICK (50Hz)
+    // ==========================
     if (now - lastTick >= 20) {
 
         lastTick = now;
@@ -58,11 +63,18 @@ void loop() {
         eventQueue.push(EventType::TIMER_TICK);
     }
 
+    // ==========================
+    // INPUT LAYER
+    // ==========================
     irRemote.update();
 
+    // ==========================
+    // SENSOR SYSTEMS
+    // ==========================
     obstacleSystem.update();
 
-    patrolSystem.update();
-
+    // ==========================
+    // CORE ROBOT BRAIN
+    // ==========================
     stateMachine.update();
 }
