@@ -3,6 +3,7 @@
 #include "route_logger.h"
 #include "patrol_system.h"
 #include "control_policy.h"
+#include "motion_command.h"
 
 static MotionEngine motion;
 static RouteLogger logger;
@@ -57,6 +58,8 @@ void StateMachine::handleEvent(const Event& event) {
 
         patrol.stop();
 
+        motion.setSafetyOverride(true);
+
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
 
         motion.stop();
@@ -68,6 +71,8 @@ void StateMachine::handleEvent(const Event& event) {
         currentState == RobotState::OBSTACLE_AVOIDANCE) {
 
         policy.resetEmergency();
+
+        motion.setSafetyOverride(false);
 
         transitionTo(RobotState::MANUAL);
 
@@ -196,51 +201,64 @@ void StateMachine::handleEvent(const Event& event) {
 // ==========================
 void StateMachine::handleManual(const Event& event) {
 
+    MotionCommand cmd;
+
     switch (event.type) {
 
         case EventType::MOVE_FORWARD:
 
-            logger.logEvent(EventType::MOVE_FORWARD);
-
-            motion.forward(event.value);
+            cmd = {
+                MotionAction::FORWARD,
+                (uint16_t)event.value
+            };
 
             break;
 
         case EventType::MOVE_BACKWARD:
 
-            logger.logEvent(EventType::MOVE_BACKWARD);
-
-            motion.backward(event.value);
+            cmd = {
+                MotionAction::BACKWARD,
+                (uint16_t)event.value
+            };
 
             break;
 
         case EventType::TURN_LEFT:
 
-            logger.logEvent(EventType::TURN_LEFT);
-
-            motion.left(event.value);
+            cmd = {
+                MotionAction::LEFT,
+                (uint16_t)event.value
+            };
 
             break;
 
         case EventType::TURN_RIGHT:
 
-            logger.logEvent(EventType::TURN_RIGHT);
-
-            motion.right(event.value);
+            cmd = {
+                MotionAction::RIGHT,
+                (uint16_t)event.value
+            };
 
             break;
 
         case EventType::STOP:
 
-            logger.logEvent(EventType::STOP);
-
-            motion.stop();
+            cmd = {
+                MotionAction::STOP,
+                0
+            };
 
             break;
 
         default:
-            break;
+            return;
     }
+
+    // unified execution path
+    motion.execute(cmd);
+
+    // unified logging path
+    logger.logCommand(cmd);
 }
 
 // ==========================
@@ -249,10 +267,30 @@ void StateMachine::handleManual(const Event& event) {
 // perception-only state
 void StateMachine::handleObstacle(const Event& event) {
 
-    if (event.type == EventType::SENSOR_UPDATE) {
-
-        motion.setDistance(event.value);
+    if (event.type != EventType::SENSOR_UPDATE) {
+        return;
     }
+
+    motion.setDistance(event.value);
+
+    MotionCommand cmd;
+
+    if (event.value > 0 && event.value < 30) {
+
+        cmd = {
+            MotionAction::STOP,
+            0
+        };
+
+    } else {
+
+        cmd = {
+            MotionAction::FORWARD,
+            150
+        };
+    }
+
+    motion.execute(cmd);
 }
 
 // ==========================
