@@ -16,12 +16,18 @@ void PatrolSystem::begin(RouteLogger* loggerRef,
 void PatrolSystem::start() {
 
     if (logger->getStepCount() == 0) {
+
         Serial.println("No Route Recorded");
         return;
     }
 
     running = true;
+    paused = false;
+
     currentStep = 0;
+
+    pausedElapsed = 0;
+
     stepStartTime = millis();
 
     Serial.println("IMU-Assisted Patrol Started");
@@ -35,10 +41,54 @@ void PatrolSystem::start() {
 void PatrolSystem::stop() {
 
     running = false;
+    paused = false;
 
-    motion->execute({ MotionAction::STOP, 0 });
+    motion->execute({
+        MotionAction::STOP,
+        0
+    });
 
     Serial.println("Patrol Replay Stopped");
+}
+
+// ==========================
+// PAUSE PATROL
+// ==========================
+void PatrolSystem::pause() {
+
+    if (!running || paused) {
+        return;
+    }
+
+    paused = true;
+
+    // preserve elapsed time
+    pausedElapsed += millis() - stepStartTime;
+
+    motion->execute({
+        MotionAction::STOP,
+        0
+    });
+
+    Serial.println("Patrol Paused");
+}
+
+// ==========================
+// RESUME PATROL
+// ==========================
+void PatrolSystem::resume() {
+
+    if (!running || !paused) {
+        return;
+    }
+
+    paused = false;
+
+    stepStartTime = millis();
+
+    executeStep(logger->getStep(currentStep));
+
+    Serial.println("Patrol Resumed");
 }
 
 // ==========================
@@ -46,17 +96,23 @@ void PatrolSystem::stop() {
 // ==========================
 void PatrolSystem::update() {
 
-    if (!running) return;
+    if (!running || paused) {
+        return;
+    }
 
     RouteStep step = logger->getStep(currentStep);
 
-    // ==========================
-    // STILL EXECUTING CURRENT STEP
-    // ==========================
-    if (millis() - stepStartTime < step.duration) {
+    unsigned long elapsed =
+        pausedElapsed +
+        (millis() - stepStartTime);
 
-        // 🔥 CONTINUOUS IMU CORRECTION (KEY UPGRADE)
+    // ==========================
+    // STILL EXECUTING STEP
+    // ==========================
+    if (elapsed < step.duration) {
+
         motion->setYaw(step.yaw);
+
         motion->execute(step.cmd);
 
         return;
@@ -67,10 +123,14 @@ void PatrolSystem::update() {
     // ==========================
     currentStep++;
 
+    pausedElapsed = 0;
+
     if (currentStep >= logger->getStepCount()) {
 
         stop();
+
         Serial.println("Patrol Complete");
+
         return;
     }
 
@@ -80,14 +140,12 @@ void PatrolSystem::update() {
 }
 
 // ==========================
-// EXECUTE STEP (IMU-AWARE)
+// EXECUTE STEP
 // ==========================
 void PatrolSystem::executeStep(const RouteStep& step) {
 
-    // 🔥 LOCK TARGET HEADING FROM RECORDED PATH
     motion->setYaw(step.yaw);
 
-    // 🔥 EXECUTE USING UNIFIED COMMAND SYSTEM
     motion->execute(step.cmd);
 }
 
@@ -96,4 +154,11 @@ void PatrolSystem::executeStep(const RouteStep& step) {
 // ==========================
 bool PatrolSystem::isRunning() {
     return running;
+}
+
+// ==========================
+// PAUSE STATUS
+// ==========================
+bool PatrolSystem::isPaused() {
+    return paused;
 }
