@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include "route_logger.h"
-#include "motion_engine.h"
+#include "../motion/motion_engine.h"
 
 class PatrolSystem {
 public:
@@ -12,9 +12,15 @@ public:
 
     void start();
     void stop();
+
+    // NEW
+    void pause();
+    void resume();
+
     void update();
 
     bool isRunning();
+    bool isPaused();
 
 private:
 
@@ -22,12 +28,14 @@ private:
     MotionEngine* motion = nullptr;
 
     bool running = false;
+    bool paused = false;
 
     int currentStep = 0;
 
     unsigned long stepStartTime = 0;
 
-    void executeStep(const RouteStep& step);
+    // NEW
+    unsigned long pausedElapsed = 0;
 
-    void applyYawCorrection(const RouteStep& step);
+    void executeStep(const RouteStep& step);
 };
