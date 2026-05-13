@@ -1,5 +1,6 @@
 #include "ir_remote.h"
-#include "event_system.h"
+#include "../core/event_system.h"
+#include <IRremote.h>
 
 static EventQueue* queueRef;
 

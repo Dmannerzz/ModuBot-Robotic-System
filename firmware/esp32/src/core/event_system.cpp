@@ -10,12 +10,9 @@ void EventQueue::push(EventType type, int value) {
         return;
     }
 
-    buffer[tail] = {
-        type,
-        value,
-        0,
-        millis()
-    };
+    buffer[tail].type = type;
+    buffer[tail].value = value;
+    buffer[tail].timestamp = millis();
 
     tail = (tail + 1) % CAPACITY;
     count++;

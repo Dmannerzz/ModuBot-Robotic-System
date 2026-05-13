@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include "motion_command.h"
+#include "../core/motion_command.h"
 
 #define MAX_ROUTE_STEPS 50
 

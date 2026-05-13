@@ -1,11 +1,11 @@
 #include "state_machine.h"
 
-#include "motion/motion_engine.h"
-#include "systems/route_logger.h"
-#include "systems/patrol_system.h"
-#include "core/control_policy.h"
-#include "motion/motion_command.h"
-#include "drivers/imu.h"
+#include "../motion/motion_engine.h"
+#include "../systems/route_logger.h"
+#include "../systems/patrol_system.h"
+#include "control_policy.h"
+#include "motion_command.h"
+#include "../drivers/imu.h"
 
 // ==========================
 // INTERNAL SYSTEMS
@@ -166,4 +166,28 @@ void StateMachine::handleEvent(const Event& event) {
             handleIdle(event);
             break;
     }
+}
+
+// ==========================
+// INTERNAL STATE HANDLERS
+// ==========================
+
+void StateMachine::transitionTo(RobotState newState) {
+    currentState = newState;
+}
+
+void StateMachine::handleManual(const Event& event) {
+    // Manual control handled externally (IR / remote / WiFi)
+}
+
+void StateMachine::handleObstacle(const Event& event) {
+    // Obstacle system already takes control via MotionEngine safety override
+}
+
+void StateMachine::handlePatrol(const Event& event) {
+    // PatrolSystem handles execution loop independently
+}
+
+void StateMachine::handleIdle(const Event& event) {
+    motion.execute({MotionAction::STOP, 0});
 }

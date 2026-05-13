@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include "pid_controller.h"
-#include "motion_command.h"
+#include "../core/motion_command.h"
 #include "../drivers/imu.h"
 
 class MotionEngine {

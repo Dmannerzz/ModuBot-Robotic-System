@@ -1,30 +1,23 @@
 #pragma once
 
-#include "event_system.h"
+// ==========================
+// INPUT PINS
+// ==========================
+#define IR_PIN 35
 
-enum class ControlAuthority {
-    NONE = 0,
-    MANUAL,
-    OBSTACLE,
-    PATROL
-};
+// ==========================
+// ULTRASONIC PINS
+// ==========================
+#define ULTRASONIC_TRIG_PIN 26
+#define ULTRASONIC_ECHO_PIN 36
 
-class ControlPolicy {
-public:
+// ==========================
+// MOTOR LIMITS
+// ==========================
+#define MAX_SPEED 255
+#define MIN_SPEED 0
 
-    void setAuthority(ControlAuthority auth);
-    ControlAuthority getAuthority();
-
-    bool canMove(ControlAuthority requester);
-
-    void emergencyStop();
-    void resetEmergency();
-
-    bool isEmergencyStopped();
-
-private:
-
-    ControlAuthority currentAuthority = ControlAuthority::NONE;
-
-    bool emergencyStopActive = false;
-};
+// ==========================
+// SAFETY SETTINGS
+// ==========================
+#define SAFE_DISTANCE_CM 30

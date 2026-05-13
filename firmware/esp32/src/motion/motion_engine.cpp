@@ -1,5 +1,5 @@
 #include "motion_engine.h"
-#include "motors.h"
+#include "../drivers/motors.h"
 #include <Arduino.h>
 
 // ==========================
@@ -57,8 +57,9 @@ void MotionEngine::execute(const MotionCommand& cmd) {
         currentYaw = imuRef->getYaw();
     }
 
-    float correction = pid.compute(targetYaw, currentYaw);
-
+    float dt = 0.02f; // or use millis-based later
+    float correction = pid.compute(targetYaw, currentYaw, dt);
+    
     int left = speed + correction;
     int right = speed - correction;
 

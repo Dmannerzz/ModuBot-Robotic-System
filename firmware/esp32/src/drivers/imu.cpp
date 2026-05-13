@@ -1,23 +1,38 @@
 #include "imu.h"
+#include <Wire.h>
 
 void IMU::begin() {
 
-    if (!mpu.begin()) {
+    // ==========================
+    // ESP32 I2C INIT (CRITICAL FIX)
+    // ==========================
+    Wire.begin(21, 22);   // SDA = 21, SCL = 22
+
+    // ==========================
+    // MPU INIT (AD0 = HIGH → 0x69)
+    // ==========================
+    if (!mpu.begin(0x69)) {
         Serial.println("MPU6050 not found!");
         while (1);
     }
 
+    // ==========================
+    // SENSOR CONFIG
+    // ==========================
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
+    // ==========================
+    // CALIBRATION
+    // ==========================
     calibrate();
 
     yaw = 0.0f;
     gyroZ = 0.0f;
     lastUpdate = millis();
 
-    Serial.println("IMU initialized");
+    Serial.println("IMU initialized successfully");
 }
 
 // ==========================
@@ -45,7 +60,7 @@ void IMU::calibrate() {
 }
 
 // ==========================
-// UPDATE LOOP (CORE IMU ENGINE)
+// UPDATE LOOP
 // ==========================
 void IMU::update() {
 
@@ -58,7 +73,7 @@ void IMU::update() {
     lastUpdate = now;
 
     // ==========================
-    // protect against bad dt
+    // safety clamp for dt
     // ==========================
     if (dt <= 0.0f || dt > 0.1f) {
         dt = 0.01f;
@@ -76,7 +91,7 @@ void IMU::update() {
     // integrate yaw
     yaw += gyroDeg * dt;
 
-    // normalize angle
+    // normalize angle (-180 to 180)
     if (yaw > 180.0f) yaw -= 360.0f;
     if (yaw < -180.0f) yaw += 360.0f;
 }

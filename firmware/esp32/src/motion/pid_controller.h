@@ -4,7 +4,7 @@ class PIDController {
 public:
     void begin(float kp, float ki, float kd);
 
-    float compute(float target, float current);
+    float compute(float target, float current, float dt);
     void reset();
 
 private:

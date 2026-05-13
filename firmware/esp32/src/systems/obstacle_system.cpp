@@ -1,7 +1,8 @@
 #include "obstacle_system.h"
-#include "ultrasonic.h"
+#include "../drivers/ultrasonic.h"
 
 static Ultrasonic ultrasonic;
+static bool bufferInitialized = false;
 
 // ==========================
 // CONFIG
