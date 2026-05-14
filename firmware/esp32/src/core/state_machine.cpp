@@ -14,7 +14,12 @@ static MotionEngine motion;
 static RouteLogger logger;
 static PatrolSystem patrol;
 static ControlPolicy policy;
-static IMU imu;   
+static IMU imu;
+
+// ==========================
+// ACTIVE COMMAND (SINGLE SOURCE OF TRUTH)
+// ==========================
+static MotionCommand activeCmd = { MotionAction::STOP, 0 };
 
 // ==========================
 // INIT
@@ -24,9 +29,6 @@ void StateMachine::init(EventQueue* queue) {
     eventQueue = queue;
     currentState = RobotState::IDLE;
 
-    // ==========================
-    // CORE MODULE INIT
-    // ==========================
     motion.begin();
     logger.begin();
 
@@ -34,15 +36,11 @@ void StateMachine::init(EventQueue* queue) {
 
     policy.setAuthority(ControlAuthority::NONE);
 
-    // ==========================
-    // IMU INIT + WIRING
-    // ==========================
     imu.begin();
     motion.attachIMU(&imu);
 
     motion.setSafetyOverride(false);
 
-    // SAFE START STATE
     motion.execute({MotionAction::STOP, 0});
 
     Serial.println("System Wiring Complete");
@@ -59,6 +57,7 @@ void StateMachine::update() {
         handleEvent(event);
     }
 
+    // Patrol runs independently
     patrol.update();
 }
 
@@ -80,7 +79,6 @@ void StateMachine::handleEvent(const Event& event) {
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
 
         motion.execute({MotionAction::STOP, 0});
-
         return;
     }
 
@@ -93,7 +91,6 @@ void StateMachine::handleEvent(const Event& event) {
         transitionTo(RobotState::MANUAL);
 
         motion.execute({MotionAction::STOP, 0});
-
         return;
     }
 
@@ -169,25 +166,96 @@ void StateMachine::handleEvent(const Event& event) {
 }
 
 // ==========================
-// INTERNAL STATE HANDLERS
+// MANUAL MODE (FIXED CLEAN FLOW)
 // ==========================
-
-void StateMachine::transitionTo(RobotState newState) {
-    currentState = newState;
-}
-
 void StateMachine::handleManual(const Event& event) {
-    // Manual control handled externally (IR / remote / WiFi)
+
+    switch (event.type) {
+
+        case EventType::MOVE_FORWARD:
+            activeCmd = { MotionAction::FORWARD, (uint16_t)event.value };
+            break;
+
+        case EventType::MOVE_BACKWARD:
+            activeCmd = { MotionAction::BACKWARD, (uint16_t)event.value };
+            break;
+
+        case EventType::TURN_LEFT:
+            activeCmd = { MotionAction::LEFT, (uint16_t)event.value };
+            break;
+
+        case EventType::TURN_RIGHT:
+            activeCmd = { MotionAction::RIGHT, (uint16_t)event.value };
+            break;
+
+        case EventType::STOP:
+            activeCmd = { MotionAction::STOP, 0 };
+            break;
+
+        default:
+            return;
+    }
+
+    // SINGLE EXECUTION ONLY
+    motion.execute(activeCmd);
 }
 
+// ==========================
+// OBSTACLE MODE
+// ==========================
 void StateMachine::handleObstacle(const Event& event) {
-    // Obstacle system already takes control via MotionEngine safety override
+
+    if (event.type != EventType::SENSOR_UPDATE) {
+        return;
+    }
+
+    if (event.value > 0 && event.value < 30) {
+        motion.execute({MotionAction::STOP, 0});
+    } else {
+        motion.execute({MotionAction::FORWARD, 150});
+    }
 }
 
+// ==========================
+// PATROL MODE
+// ==========================
 void StateMachine::handlePatrol(const Event& event) {
-    // PatrolSystem handles execution loop independently
+    // handled by PatrolSystem
 }
 
+// ==========================
+// IDLE MODE
+// ==========================
 void StateMachine::handleIdle(const Event& event) {
     motion.execute({MotionAction::STOP, 0});
+}
+
+// ==========================
+// TRANSITION
+// ==========================
+void StateMachine::transitionTo(RobotState newState) {
+
+    currentState = newState;
+
+    switch (newState) {
+
+        case RobotState::MANUAL:
+            policy.setAuthority(ControlAuthority::MANUAL);
+            break;
+
+        case RobotState::OBSTACLE_AVOIDANCE:
+            policy.setAuthority(ControlAuthority::OBSTACLE);
+            break;
+
+        case RobotState::PATROL:
+            policy.setAuthority(ControlAuthority::PATROL);
+            break;
+
+        case RobotState::IDLE:
+            policy.setAuthority(ControlAuthority::NONE);
+            break;
+    }
+
+    Serial.print("STATE → ");
+    Serial.println((int)newState);
 }

@@ -6,15 +6,20 @@
 // INIT
 // ==========================
 void MotionEngine::begin() {
+
     pid.begin(2.0, 0.0, 0.5);
     targetYaw = 0;
+
+    Serial.println("[MotionEngine] INIT OK");
 }
 
 // ==========================
 // ATTACH IMU
 // ==========================
 void MotionEngine::attachIMU(IMU* imu) {
+
     imuRef = imu;
+    Serial.println("[MotionEngine] IMU ATTACHED");
 }
 
 // ==========================
@@ -28,10 +33,12 @@ void MotionEngine::setYaw(float yaw) {
 // SAFETY CONTROL
 // ==========================
 void MotionEngine::setSafetyOverride(bool enabled) {
+
     safetyOverride = enabled;
 
     if (enabled) {
         Motors::stop();
+        Serial.println("[MotionEngine] SAFETY OVERRIDE ACTIVE");
     }
 }
 
@@ -39,6 +46,8 @@ void MotionEngine::setSafetyOverride(bool enabled) {
 // COMMAND EXECUTOR (CORE)
 // ==========================
 void MotionEngine::execute(const MotionCommand& cmd) {
+
+    Serial.println("[MotionEngine] EXECUTE CALLED");   // 🔥 PROOF TEST
 
     if (safetyOverride) {
         Motors::stop();
@@ -57,9 +66,9 @@ void MotionEngine::execute(const MotionCommand& cmd) {
         currentYaw = imuRef->getYaw();
     }
 
-    float dt = 0.02f; // or use millis-based later
+    float dt = 0.02f;
     float correction = pid.compute(targetYaw, currentYaw, dt);
-    
+
     int left = speed + correction;
     int right = speed - correction;
 
@@ -72,23 +81,28 @@ void MotionEngine::execute(const MotionCommand& cmd) {
     switch (cmd.action) {
 
         case MotionAction::FORWARD:
+            Serial.println("[MotionEngine] FORWARD → Motors::set");
             Motors::set(left, right);
             break;
 
         case MotionAction::BACKWARD:
+            Serial.println("[MotionEngine] BACKWARD → Motors::set");
             Motors::set(-left, -right);
             break;
 
         case MotionAction::LEFT:
+            Serial.println("[MotionEngine] LEFT → Motors::set");
             Motors::set(-speed, speed);
             break;
 
         case MotionAction::RIGHT:
+            Serial.println("[MotionEngine] RIGHT → Motors::set");
             Motors::set(speed, -speed);
             break;
 
         case MotionAction::STOP:
         default:
+            Serial.println("[MotionEngine] STOP → Motors::stop");
             Motors::stop();
             break;
     }
