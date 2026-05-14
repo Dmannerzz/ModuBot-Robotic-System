@@ -23,6 +23,9 @@ enum class EventType {
 
     LOG_ROUTE,
     RESET_LOGS,
+    
+    SELECT_ROUTE_0,
+    SELECT_ROUTE_1,
 
     IR_COMMAND,
     WIFI_COMMAND,

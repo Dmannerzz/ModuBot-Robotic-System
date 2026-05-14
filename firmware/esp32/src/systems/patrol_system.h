@@ -4,6 +4,8 @@
 #include "route_logger.h"
 #include "../motion/motion_engine.h"
 
+#define MAX_ROUTES 2  // Support 2 routes
+
 class PatrolSystem {
 public:
 
@@ -13,7 +15,6 @@ public:
     void start();
     void stop();
 
-    // NEW
     void pause();
     void resume();
 
@@ -21,6 +22,11 @@ public:
 
     bool isRunning();
     bool isPaused();
+
+    // Route selection
+    void selectRoute(int routeIndex);
+    int getSelectedRoute();
+    void startWithRoute(int routeIndex);
 
 private:
 
@@ -31,10 +37,9 @@ private:
     bool paused = false;
 
     int currentStep = 0;
+    int selectedRoute = 0;  // Currently selected route (0 or 1)
 
     unsigned long stepStartTime = 0;
-
-    // NEW
     unsigned long pausedElapsed = 0;
 
     void executeStep(const RouteStep& step);

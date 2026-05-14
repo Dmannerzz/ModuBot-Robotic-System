@@ -73,7 +73,7 @@ void Motors::applyLeft(int pwm) {
 
     pwm = constrain(pwm, -255, 255);
 
-    if (abs(pwm) < 20) pwm = 0;
+    if (abs(pwm) < 12) pwm = 0;  // Reduced deadband from 20 to 12
 
     if (pwm >= 0) {
         ledcWrite(CH_A1, 0);
@@ -99,7 +99,7 @@ void Motors::applyRight(int pwm) {
 
     pwm = constrain(pwm, -255, 255);
 
-    if (abs(pwm) < 20) pwm = 0;
+    if (abs(pwm) < 12) pwm = 0;  // Reduced deadband from 20 to 12
 
     if (pwm >= 0) {
         ledcWrite(CH_C1, pwm);

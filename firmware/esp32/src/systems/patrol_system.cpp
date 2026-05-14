@@ -8,6 +8,39 @@ void PatrolSystem::begin(RouteLogger* loggerRef,
 
     logger = loggerRef;
     motion = motionRef;
+    selectedRoute = 0;
+}
+
+// ==========================
+// SELECT ROUTE
+// ==========================
+void PatrolSystem::selectRoute(int routeIndex) {
+
+    if (routeIndex < 0 || routeIndex >= MAX_ROUTES) {
+        Serial.println("Invalid route index");
+        return;
+    }
+
+    selectedRoute = routeIndex;
+
+    Serial.print("Selected Route: ");
+    Serial.println(selectedRoute);
+}
+
+// ==========================
+// GET SELECTED ROUTE
+// ==========================
+int PatrolSystem::getSelectedRoute() {
+    return selectedRoute;
+}
+
+// ==========================
+// START WITH SELECTED ROUTE
+// ==========================
+void PatrolSystem::startWithRoute(int routeIndex) {
+
+    selectRoute(routeIndex);
+    start();
 }
 
 // ==========================
@@ -30,7 +63,9 @@ void PatrolSystem::start() {
 
     stepStartTime = millis();
 
-    Serial.println("IMU-Assisted Patrol Started");
+    Serial.print("IMU-Assisted Patrol Started (Route ");
+    Serial.print(selectedRoute);
+    Serial.println(")");
 
     executeStep(logger->getStep(currentStep));
 }

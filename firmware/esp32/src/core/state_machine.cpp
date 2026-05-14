@@ -34,6 +34,11 @@ void StateMachine::init(EventQueue* queue) {
 
     patrol.begin(&logger, &motion);
 
+    // ==========================
+    // ATTACH LOGGER TO MOTION ENGINE
+    // ==========================
+    motion.attachLogger(&logger);
+
     policy.setAuthority(ControlAuthority::NONE);
 
     imu.begin();
@@ -126,11 +131,21 @@ void StateMachine::handleEvent(const Event& event) {
 
             if (!logger.isRecording()) {
                 logger.startRecording();
+                motion.enableLogging(true);  // Enable motion engine logging
                 Serial.println("Route Recording Started");
             } else {
                 logger.stopRecording();
+                motion.enableLogging(false);  // Disable motion engine logging
                 Serial.println("Route Recording Stopped");
             }
+            return;
+
+        case EventType::SELECT_ROUTE_0:
+            patrol.selectRoute(0);
+            return;
+
+        case EventType::SELECT_ROUTE_1:
+            patrol.selectRoute(1);
             return;
 
         case EventType::RESET_LOGS:
@@ -212,7 +227,7 @@ void StateMachine::handleObstacle(const Event& event) {
     if (event.value > 0 && event.value < 30) {
         motion.execute({MotionAction::STOP, 0});
     } else {
-        motion.execute({MotionAction::FORWARD, 150});
+        motion.execute({MotionAction::FORWARD, 240});  // Max speed forward
     }
 }
 
