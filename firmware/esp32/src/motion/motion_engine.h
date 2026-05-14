@@ -5,7 +5,7 @@
 #include "../core/motion_command.h"
 #include "../drivers/imu.h"
 
-class RouteLogger;
+class RouteStorage;
 
 class MotionEngine {
 public:
@@ -23,22 +23,22 @@ public:
     // OPTIONAL: attach IMU reference (dependency injection)
     void attachIMU(IMU* imu);
 
-    // ROUTE LOGGING
-    void attachLogger(RouteLogger* logger);
+    // ROUTE STORAGE
+    void attachStorage(RouteStorage* storage);
     void enableLogging(bool enabled);
 
 private:
     PIDController pid;
 
     IMU* imuRef = nullptr;
-    RouteLogger* loggerRef = nullptr;
+    RouteStorage* storageRef = nullptr;
 
     float targetYaw = 0.0f;
 
     bool safetyOverride = false;
     bool loggingEnabled = false;
 
-    int baseSpeed = 255;  // Max speed (was 180)
+    int baseSpeed = 255;
 
     unsigned long lastExecuteTime = 0;
 

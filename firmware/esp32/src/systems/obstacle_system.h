@@ -19,4 +19,7 @@ private:
     int smoothDistance(int newReading);
     int buffer[5] = {100,100,100,100,100};
     int index = 0;
+    
+    // scanning
+    int scanAndAvoid();
 };

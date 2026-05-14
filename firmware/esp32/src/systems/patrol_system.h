@@ -1,15 +1,15 @@
 #pragma once
 
 #include <Arduino.h>
-#include "route_logger.h"
+#include "route_storage.h"
 #include "../motion/motion_engine.h"
 
-#define MAX_ROUTES 2  // Support 2 routes
+#define MAX_ROUTES 2
 
 class PatrolSystem {
 public:
 
-    void begin(RouteLogger* loggerRef,
+    void begin(RouteStorage* storageRef,
                MotionEngine* motionRef);
 
     void start();
@@ -30,14 +30,14 @@ public:
 
 private:
 
-    RouteLogger* logger = nullptr;
+    RouteStorage* storage = nullptr;
     MotionEngine* motion = nullptr;
 
     bool running = false;
     bool paused = false;
 
     int currentStep = 0;
-    int selectedRoute = 0;  // Currently selected route (0 or 1)
+    int selectedRoute = 0;
 
     unsigned long stepStartTime = 0;
     unsigned long pausedElapsed = 0;

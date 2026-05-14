@@ -3,10 +3,10 @@
 // ==========================
 // INIT
 // ==========================
-void PatrolSystem::begin(RouteLogger* loggerRef,
+void PatrolSystem::begin(RouteStorage* storageRef,
                          MotionEngine* motionRef) {
 
-    logger = loggerRef;
+    storage = storageRef;
     motion = motionRef;
     selectedRoute = 0;
 }
@@ -48,7 +48,7 @@ void PatrolSystem::startWithRoute(int routeIndex) {
 // ==========================
 void PatrolSystem::start() {
 
-    if (logger->getStepCount() == 0) {
+    if (storage->getStepCount(selectedRoute) == 0) {
 
         Serial.println("No Route Recorded");
         return;
@@ -67,7 +67,7 @@ void PatrolSystem::start() {
     Serial.print(selectedRoute);
     Serial.println(")");
 
-    executeStep(logger->getStep(currentStep));
+    executeStep(storage->getStep(selectedRoute, currentStep));
 }
 
 // ==========================
@@ -121,7 +121,7 @@ void PatrolSystem::resume() {
 
     stepStartTime = millis();
 
-    executeStep(logger->getStep(currentStep));
+    executeStep(storage->getStep(selectedRoute, currentStep));
 
     Serial.println("Patrol Resumed");
 }
@@ -135,7 +135,7 @@ void PatrolSystem::update() {
         return;
     }
 
-    RouteStep step = logger->getStep(currentStep);
+    RouteStep step = storage->getStep(selectedRoute, currentStep);
 
     unsigned long elapsed =
         pausedElapsed +
@@ -160,7 +160,7 @@ void PatrolSystem::update() {
 
     pausedElapsed = 0;
 
-    if (currentStep >= logger->getStepCount()) {
+    if (currentStep >= storage->getStepCount(selectedRoute)) {
 
         stop();
 
@@ -171,7 +171,7 @@ void PatrolSystem::update() {
 
     stepStartTime = millis();
 
-    executeStep(logger->getStep(currentStep));
+    executeStep(storage->getStep(selectedRoute, currentStep));
 }
 
 // ==========================

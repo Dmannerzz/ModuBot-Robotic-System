@@ -18,6 +18,7 @@ enum class EventType {
 
     OBSTACLE_DETECTED,
     OBSTACLE_CLEARED,
+    SCAN_COMPLETE,
     LOW_LIGHT,
     SENSOR_UPDATE,
 

@@ -1,8 +1,12 @@
 #include "obstacle_system.h"
 #include "../drivers/ultrasonic.h"
+#include "../drivers/scanner.h"
 
 static Ultrasonic ultrasonic;
+static Scanner scanner;
 static bool bufferInitialized = false;
+static unsigned long lastScanTime = 0;
+static const unsigned long SUPPRESS_CLEAR_MS = 1200;
 
 // ==========================
 // CONFIG
@@ -17,6 +21,7 @@ void ObstacleSystem::begin(EventQueue* queue) {
     eventQueue = queue;
 
     ultrasonic.begin();
+    scanner.begin();
 }
 
 // ==========================
@@ -43,6 +48,19 @@ int ObstacleSystem::smoothDistance(int newReading) {
 bool ObstacleSystem::isValidReading(int d) {
 
     return (d > 0 && d < 400);
+}
+
+// ==========================
+// PERFORM SCAN AND GET BEST DIRECTION
+// ==========================
+int ObstacleSystem::scanAndAvoid() {
+    ScanResult result = scanner.performScan();
+    int bestDirection = result.getBestDirection();
+    
+    Serial.print("Best direction: ");
+    Serial.println(bestDirection == -1 ? "LEFT" : (bestDirection == 0 ? "FORWARD" : "RIGHT"));
+    
+    return bestDirection;
 }
 
 // ==========================
@@ -109,7 +127,7 @@ void ObstacleSystem::update() {
     }
 
     // ==========================
-    // OBSTACLE DETECTION
+    // OBSTACLE DETECTION WITH SCANNING
     // ==========================
     if (distance > 0 &&
         distance < OBSTACLE_THRESHOLD) {
@@ -117,16 +135,34 @@ void ObstacleSystem::update() {
         if (!obstacleState) {
 
             obstacleState = true;
+            
+            // Trigger scan and get best direction
+            int bestDirection = scanAndAvoid();
 
             eventQueue->push(
                 EventType::OBSTACLE_DETECTED,
                 distance
             );
+            
+            // Push scan result (encoded as: -1=LEFT, 0=CENTER, 1=RIGHT, +100 to ensure positive)
+            eventQueue->push(
+                EventType::SCAN_COMPLETE,
+                bestDirection + 100
+            );
+
+            // record scan time to suppress transient clears
+            lastScanTime = millis();
         }
 
     } else {
 
         if (obstacleState) {
+
+            // If we recently scanned, suppress transient clear events
+            if (millis() - lastScanTime < SUPPRESS_CLEAR_MS) {
+                Serial.println("Obstacle clear suppressed (recent scan)");
+                return;
+            }
 
             obstacleState = false;
 
@@ -137,3 +173,4 @@ void ObstacleSystem::update() {
         }
     }
 }
+

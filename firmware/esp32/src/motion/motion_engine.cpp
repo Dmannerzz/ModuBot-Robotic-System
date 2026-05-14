@@ -1,6 +1,6 @@
 #include "motion_engine.h"
 #include "../drivers/motors.h"
-#include "../systems/route_logger.h"
+#include "../systems/route_storage.h"
 #include <Arduino.h>
 
 // ==========================
@@ -25,12 +25,12 @@ void MotionEngine::attachIMU(IMU* imu) {
 }
 
 // ==========================
-// ATTACH LOGGER
+// ATTACH STORAGE
 // ==========================
-void MotionEngine::attachLogger(RouteLogger* logger) {
+void MotionEngine::attachStorage(RouteStorage* storage) {
 
-    loggerRef = logger;
-    Serial.println("[MotionEngine] Logger ATTACHED");
+    storageRef = storage;
+    Serial.println("[MotionEngine] Storage ATTACHED");
 }
 
 // ==========================
@@ -139,7 +139,7 @@ void MotionEngine::execute(const MotionCommand& cmd) {
     // ==========================
     // ROUTE LOGGING (IF ENABLED)
     // ==========================
-    if (loggingEnabled && loggerRef != nullptr) {
-        loggerRef->logCommand(cmd, currentYaw);
+    if (loggingEnabled && storageRef != nullptr) {
+        storageRef->logCommand(cmd, currentYaw);
     }
 }
