@@ -1,5 +1,6 @@
 #include "motion_engine.h"
 #include "../drivers/motors.h"
+#include "../systems/route_logger.h"
 #include <Arduino.h>
 
 // ==========================
@@ -9,6 +10,7 @@ void MotionEngine::begin() {
 
     pid.begin(2.0, 0.0, 0.5);
     targetYaw = 0;
+    lastExecuteTime = millis();
 
     Serial.println("[MotionEngine] INIT OK");
 }
@@ -20,6 +22,25 @@ void MotionEngine::attachIMU(IMU* imu) {
 
     imuRef = imu;
     Serial.println("[MotionEngine] IMU ATTACHED");
+}
+
+// ==========================
+// ATTACH LOGGER
+// ==========================
+void MotionEngine::attachLogger(RouteLogger* logger) {
+
+    loggerRef = logger;
+    Serial.println("[MotionEngine] Logger ATTACHED");
+}
+
+// ==========================
+// ENABLE LOGGING
+// ==========================
+void MotionEngine::enableLogging(bool enabled) {
+
+    loggingEnabled = enabled;
+    Serial.print("[MotionEngine] Logging ");
+    Serial.println(enabled ? "ENABLED" : "DISABLED");
 }
 
 // ==========================
@@ -47,7 +68,7 @@ void MotionEngine::setSafetyOverride(bool enabled) {
 // ==========================
 void MotionEngine::execute(const MotionCommand& cmd) {
 
-    Serial.println("[MotionEngine] EXECUTE CALLED");   // 🔥 PROOF TEST
+    Serial.println("[MotionEngine] EXECUTE CALLED");
 
     if (safetyOverride) {
         Motors::stop();
@@ -57,8 +78,17 @@ void MotionEngine::execute(const MotionCommand& cmd) {
     uint16_t speed = constrain(cmd.speed, 0, 255);
 
     // ==========================
-    // REAL PID INTEGRATION
+    // REAL PID INTEGRATION WITH ACTUAL DT
     // ==========================
+    unsigned long now = millis();
+    float dt = (now - lastExecuteTime) / 1000.0f;
+    lastExecuteTime = now;
+
+    // Safety clamp for dt
+    if (dt <= 0.0f || dt > 0.1f) {
+        dt = 0.02f;
+    }
+
     float currentYaw = 0;
 
     if (imuRef != nullptr) {
@@ -66,7 +96,6 @@ void MotionEngine::execute(const MotionCommand& cmd) {
         currentYaw = imuRef->getYaw();
     }
 
-    float dt = 0.02f;
     float correction = pid.compute(targetYaw, currentYaw, dt);
 
     int left = speed + correction;
@@ -105,5 +134,12 @@ void MotionEngine::execute(const MotionCommand& cmd) {
             Serial.println("[MotionEngine] STOP → Motors::stop");
             Motors::stop();
             break;
+    }
+
+    // ==========================
+    // ROUTE LOGGING (IF ENABLED)
+    // ==========================
+    if (loggingEnabled && loggerRef != nullptr) {
+        loggerRef->logCommand(cmd, currentYaw);
     }
 }
