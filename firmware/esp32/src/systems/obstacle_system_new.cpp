@@ -1,0 +1,1 @@
+/* Obsolete temporary file - replaced by src/systems/obstacle_system.cpp */

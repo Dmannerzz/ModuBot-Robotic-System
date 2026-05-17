@@ -37,7 +37,7 @@ void setup() {
     // ==========================
     // SYSTEM INIT
     // ==========================
-    stateMachine.init(&eventQueue);
+    stateMachine.init(&eventQueue, &obstacleSystem);
 
     obstacleSystem.begin(&eventQueue);
 

@@ -6,6 +6,7 @@ class MotionEngine;
 class RouteLogger;
 class PatrolSystem;
 class ControlPolicy;
+class ObstacleSystem;
 
 enum class RobotState {
     IDLE,
@@ -17,7 +18,7 @@ enum class RobotState {
 class StateMachine {
 public:
 
-    void init(EventQueue* queue);
+    void init(EventQueue* queue, ObstacleSystem* obstacleSystem);
     void update();
 
 private:
@@ -36,4 +37,5 @@ private:
     EventQueue* eventQueue = nullptr;
 
     RobotState currentState = RobotState::IDLE;
+    ObstacleSystem* obstacleSystem = nullptr;
 };

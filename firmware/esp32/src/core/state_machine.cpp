@@ -3,12 +3,13 @@
 #include "../motion/motion_engine.h"
 #include "../systems/route_storage.h"
 #include "../systems/patrol_system.h"
+#include "../systems/obstacle_system.h"
 #include "control_policy.h"
 #include "motion_command.h"
 #include "../drivers/imu.h"
 
 // ==========================
-// INTERNAL SYSTEMS
+// SYSTEMS
 // ==========================
 static MotionEngine motion;
 static RouteStorage storage;
@@ -17,13 +18,15 @@ static ControlPolicy policy;
 static IMU imu;
 
 // ==========================
-// ACTIVE COMMAND (SINGLE SOURCE OF TRUTH)
+// MOTION STATE
 // ==========================
 static MotionCommand activeCmd = { MotionAction::STOP, 0 };
 
-// Maneuver state for obstacle avoidance
+// ==========================
+// OBSTACLE MANEUVER STATE
+// ==========================
 static bool maneuverActive = false;
-static int maneuverPhase = 0; // 0=initial,1=followup
+static int maneuverPhase = 0;
 static unsigned long maneuverStartTime = 0;
 static unsigned long maneuverDuration = 0;
 static MotionCommand maneuverCmd = { MotionAction::STOP, 0 };
@@ -35,19 +38,16 @@ constexpr unsigned long CENTER_BURST_MS = 500;
 // ==========================
 // INIT
 // ==========================
-void StateMachine::init(EventQueue* queue) {
+void StateMachine::init(EventQueue* queue, ObstacleSystem* obstacleSys) {
 
     eventQueue = queue;
+    obstacleSystem = obstacleSys;
     currentState = RobotState::IDLE;
 
     motion.begin();
     storage.begin();
 
     patrol.begin(&storage, &motion);
-
-    // ==========================
-    // ATTACH STORAGE TO MOTION ENGINE
-    // ==========================
     motion.attachStorage(&storage);
 
     policy.setAuthority(ControlAuthority::NONE);
@@ -56,8 +56,9 @@ void StateMachine::init(EventQueue* queue) {
     motion.attachIMU(&imu);
 
     motion.setSafetyOverride(false);
-
     motion.execute({MotionAction::STOP, 0});
+
+    obstacleSystem->begin(queue);
 
     Serial.println("System Wiring Complete");
 }
@@ -74,82 +75,101 @@ void StateMachine::update() {
     }
 
     // ==========================
-    // OBSTACLE AVOIDANCE MANEUVER PROCESSING
+    // MANEUVER EXECUTION (ASYNC SAFE)
     // ==========================
-    if (currentState == RobotState::OBSTACLE_AVOIDANCE && maneuverActive) {
-        unsigned long now = millis();
-        unsigned long elapsed = now - maneuverStartTime;
+    if (maneuverActive) {
 
-        if (elapsed < maneuverDuration) {
-            // actively enforce maneuver command
+        if (millis() - maneuverStartTime < maneuverDuration) {
             motion.execute(maneuverCmd);
         } else {
-            // Phase transitions
-            if (maneuverPhase == 0) {
-                // After an initial turn, perform a short forward burst
-                if (maneuverCmd.action == MotionAction::LEFT || maneuverCmd.action == MotionAction::RIGHT) {
-                    maneuverCmd = { MotionAction::FORWARD, 200 };
-                    maneuverDuration = FORWARD_AFTER_TURN_MS;
-                    maneuverStartTime = now;
-                    maneuverPhase = 1;
-                    motion.execute(maneuverCmd);
-                } else {
-                    // initial was forward burst — finish
-                    maneuverActive = false;
-                    motion.execute({ MotionAction::FORWARD, 220 });
-                }
-            } else {
-                // completed follow-up phase
-                maneuverActive = false;
-                motion.execute({ MotionAction::FORWARD, 220 });
-            }
+            maneuverActive = false;
+
+            motion.execute({MotionAction::FORWARD, 220});
         }
     }
 
-    // Patrol runs independently
+    if (obstacleSystem != nullptr) {
+        obstacleSystem->update();
+    }
     patrol.update();
 }
 
 // ==========================
-// EVENT ROUTER
+// EVENT HANDLER
 // ==========================
 void StateMachine::handleEvent(const Event& event) {
 
     // ==========================
-    // SAFETY OVERRIDE (HIGHEST PRIORITY)
+    // OBSTACLE DETECTED
     // ==========================
     if (event.type == EventType::OBSTACLE_DETECTED) {
 
-        // In MANUAL mode, just stop and wait for operator input
         if (currentState == RobotState::MANUAL) {
             motion.execute({MotionAction::STOP, 0});
-            Serial.println("Manual: obstacle detected - stopped, awaiting input");
+            Serial.println("Manual stop due to obstacle");
             return;
         }
 
-        // For PATROL or other modes, enter avoidance
         policy.emergencyStop();
         patrol.stop();
 
-        motion.setSafetyOverride(true);
-
         transitionTo(RobotState::OBSTACLE_AVOIDANCE);
 
+        motion.setSafetyOverride(true);
         motion.execute({MotionAction::STOP, 0});
+
+        // 🔥 ONLY TRIGGER SCAN (ASYNC)
+        if (obstacleSystem != nullptr) {
+            obstacleSystem->startScan();
+        }
+
         return;
     }
 
-    if (event.type == EventType::OBSTACLE_CLEARED &&
-        currentState == RobotState::OBSTACLE_AVOIDANCE) {
+    // ==========================
+    // SCAN RESULT (CORE FIX)
+    // ==========================
+    if (event.type == EventType::SCAN_COMPLETE) {
 
-        // Clear emergency but remain in OBSTACLE_AVOIDANCE so
-        // the avoidance routine can complete its actions
+        if (currentState != RobotState::OBSTACLE_AVOIDANCE) {
+            Serial.println("SCAN_COMPLETE ignored outside obstacle mode");
+            return;
+        }
+
+        int dir = event.value;
+
         policy.resetEmergency();
-        motion.setSafetyOverride(false);
 
-        Serial.println("Obstacle cleared (avoidance): staying in OBSTACLE_AVOIDANCE");
+        transitionTo(RobotState::OBSTACLE_AVOIDANCE);
 
-        motion.execute({MotionAction::STOP, 0});
+        motion.setSafetyOverride(true);
+
+        maneuverActive = true;
+        maneuverPhase = 0;
+        maneuverStartTime = millis();
+
+        if (dir == 0) {
+            Serial.println("SCAN → LEFT");
+            maneuverCmd = { MotionAction::LEFT, 255 };
+            maneuverDuration = TURN_DURATION_MS;
+        }
+        else if (dir == 2) {
+            Serial.println("SCAN → RIGHT");
+            maneuverCmd = { MotionAction::RIGHT, 255 };
+            maneuverDuration = TURN_DURATION_MS;
+        }
+        else if (dir == 1) {
+            Serial.println("SCAN → FORWARD");
+            maneuverCmd = { MotionAction::FORWARD, 255 };
+            maneuverDuration = CENTER_BURST_MS;
+        }
+        else {
+            Serial.println("SCAN → BLOCKED → RIGHT");
+            maneuverCmd = { MotionAction::RIGHT, 255 };
+            maneuverDuration = TURN_DURATION_MS;
+        }
+
+        motion.execute(maneuverCmd);
         return;
     }
 
@@ -181,37 +201,6 @@ void StateMachine::handleEvent(const Event& event) {
             motion.execute({MotionAction::STOP, 0});
             return;
 
-        case EventType::SCAN_COMPLETE:
-
-            // Scheduler for timed avoidance maneuvers
-            if (currentState == RobotState::OBSTACLE_AVOIDANCE) {
-                int dir = event.value - 100;
-                Serial.print("SCAN_COMPLETE dir="); Serial.println(dir);
-
-                maneuverActive = true;
-                maneuverPhase = 0;
-                maneuverStartTime = millis();
-
-                if (dir == -1) {
-                    Serial.println("Scheduled maneuver: LEFT");
-                    maneuverCmd = { MotionAction::LEFT, 200 };
-                    maneuverDuration = TURN_DURATION_MS;
-                } else if (dir == 1) {
-                    Serial.println("Scheduled maneuver: RIGHT");
-                    maneuverCmd = { MotionAction::RIGHT, 200 };
-                    maneuverDuration = TURN_DURATION_MS;
-                } else {
-                    Serial.println("Scheduled maneuver: FORWARD");
-                    maneuverCmd = { MotionAction::FORWARD, 200 };
-                    maneuverDuration = CENTER_BURST_MS;
-                }
-
-                // execute first command immediately
-                motion.execute(maneuverCmd);
-            }
-
-            return;
-
         case EventType::LOG_ROUTE:
 
             if (!storage.isRecording()) {
@@ -223,19 +212,6 @@ void StateMachine::handleEvent(const Event& event) {
                 motion.enableLogging(false);
                 Serial.println("Route Recording Stopped");
             }
-            return;
-
-        case EventType::SELECT_ROUTE_0:
-            patrol.selectRoute(0);
-            return;
-
-        case EventType::SELECT_ROUTE_1:
-            patrol.selectRoute(1);
-            return;
-
-        case EventType::RESET_LOGS:
-            storage.clearRoute(patrol.getSelectedRoute());
-            Serial.println("Route Cleared");
             return;
 
         default:
@@ -266,7 +242,7 @@ void StateMachine::handleEvent(const Event& event) {
 }
 
 // ==========================
-// MANUAL MODE (FIXED CLEAN FLOW)
+// MANUAL MODE
 // ==========================
 void StateMachine::handleManual(const Event& event) {
 
@@ -296,7 +272,6 @@ void StateMachine::handleManual(const Event& event) {
             return;
     }
 
-    // SINGLE EXECUTION ONLY
     motion.execute(activeCmd);
 }
 
@@ -305,20 +280,14 @@ void StateMachine::handleManual(const Event& event) {
 // ==========================
 void StateMachine::handleObstacle(const Event& event) {
 
-    if (event.type != EventType::SENSOR_UPDATE) {
-        return;
-    }
+    if (event.type != EventType::SENSOR_UPDATE) return;
 
-    // If a timed avoidance maneuver is active, ignore sensor updates to prevent
-    // the routine from being interrupted by transient sensor values.
-    if (maneuverActive) {
-        return;
-    }
+    if (maneuverActive) return;
 
     if (event.value > 0 && event.value < 30) {
         motion.execute({MotionAction::STOP, 0});
     } else {
-        motion.execute({MotionAction::FORWARD, 240});  // Max speed forward
+        motion.execute({MotionAction::FORWARD, 255});
     }
 }
 
@@ -330,7 +299,7 @@ void StateMachine::handlePatrol(const Event& event) {
 }
 
 // ==========================
-// IDLE MODE
+// IDLE
 // ==========================
 void StateMachine::handleIdle(const Event& event) {
     motion.execute({MotionAction::STOP, 0});
@@ -347,6 +316,8 @@ void StateMachine::transitionTo(RobotState newState) {
 
         case RobotState::MANUAL:
             policy.setAuthority(ControlAuthority::MANUAL);
+            motion.setSafetyOverride(false);
+            maneuverActive = false;
             break;
 
         case RobotState::OBSTACLE_AVOIDANCE:
@@ -354,12 +325,26 @@ void StateMachine::transitionTo(RobotState newState) {
             break;
 
         case RobotState::PATROL:
+            if (obstacleSystem != nullptr) {
+                obstacleSystem->cancelScan();
+            }
             policy.setAuthority(ControlAuthority::PATROL);
+            motion.setSafetyOverride(false);
+            maneuverActive = false;
             break;
 
         case RobotState::IDLE:
+            if (obstacleSystem != nullptr) {
+                obstacleSystem->cancelScan();
+            }
             policy.setAuthority(ControlAuthority::NONE);
+            motion.setSafetyOverride(false);
+            maneuverActive = false;
             break;
+    }
+
+    if (newState == RobotState::MANUAL && obstacleSystem != nullptr) {
+        obstacleSystem->cancelScan();
     }
 
     Serial.print("STATE → ");
